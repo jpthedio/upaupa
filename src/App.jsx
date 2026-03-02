@@ -33,8 +33,12 @@ import {
   DollarSign,
   Download,
   Search,
-  Menu,
   ChevronDown,
+  Settings,
+  LayoutGrid,
+  List,
+  Table2,
+  RotateCcw,
 } from "lucide-react";
 
 // ─── Helpers ─────────────────────────────────────────────
@@ -44,7 +48,7 @@ const peso = (n) =>
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—";
 const monthLabel = (m) =>
-  new Date(m + "-15").toLocaleDateString("en-PH", { month: "long", year: "numeric" });
+  new Date(m.slice(0, 7) + "-15").toLocaleDateString("en-PH", { month: "long", year: "numeric" });
 const currentMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
@@ -87,6 +91,20 @@ function saveData(data) {
   } catch (e) {
     console.error("Save failed:", e);
   }
+}
+
+// ─── UI Preferences (persisted separately) ──────────────
+const PREFS_KEY = "upaupa-prefs";
+
+function loadPrefs() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function savePrefs(prefs) {
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {}
 }
 
 function buildSeed() {
@@ -246,8 +264,8 @@ export default function UpaUpa() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
-  const [mobileNav, setMobileNav] = useState(false);
   const [search, setSearch] = useState("");
+  const [prefs, setPrefs] = useState(() => loadPrefs());
 
   // Load
   useEffect(() => {
@@ -274,6 +292,14 @@ export default function UpaUpa() {
       m.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`);
     }
     return m;
+  }, []);
+
+  const updatePrefs = useCallback((key, value) => {
+    setPrefs((prev) => {
+      const next = { ...prev, [key]: value };
+      savePrefs(next);
+      return next;
+    });
   }, []);
 
   if (loading || !data) {
@@ -364,9 +390,10 @@ export default function UpaUpa() {
     { id: "buildings", label: "Buildings", icon: Building2 },
     { id: "tenants", label: "Tenants", icon: Users },
     { id: "payments", label: "Payments", icon: CreditCard },
+    { id: "settings", label: "Settings", icon: Settings },
   ];
 
-  function navigate(p) { setPage(p); setSelectedBuilding(null); setSearch(""); setMobileNav(false); }
+  function navigate(p) { setPage(p); setSelectedBuilding(null); setSearch(""); }
 
   // ─── Forms ────────────────────────────────────────────
   function BuildingForm({ initial, onSave }) {
@@ -712,6 +739,7 @@ export default function UpaUpa() {
   }
 
   function TenantsPage() {
+    const view = prefs.tenantsView || "card";
     const filtered = data.tenants.filter((t) => {
       if (!search) return true;
       const q = search.toLowerCase();
@@ -724,13 +752,19 @@ export default function UpaUpa() {
           <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Tenants</h1>
           <Button onClick={() => setModal({ type: "addTenant" })} size="sm" className="rounded-full bg-zinc-900 hover:bg-zinc-800"><Plus size={14} className="mr-1" /> Add Tenant</Button>
         </div>
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenants..." className="pl-9 rounded-xl" />
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenants..." className="pl-9 rounded-xl" />
+          </div>
+          <div className="flex gap-1 bg-zinc-100 p-1 rounded-lg shrink-0">
+            <button onClick={() => updatePrefs("tenantsView", "card")} className={`p-1.5 rounded-md transition-colors ${view === "card" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-600"}`}><LayoutGrid size={16} /></button>
+            <button onClick={() => updatePrefs("tenantsView", "list")} className={`p-1.5 rounded-md transition-colors ${view === "list" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-600"}`}><List size={16} /></button>
+          </div>
         </div>
         {filtered.length === 0 ? (
           <EmptyState icon={Users} title={search ? "No matches" : "No tenants yet"} sub={search ? "Try a different search" : "Add a tenant and link them to a unit"} action={!search ? "Add Tenant" : undefined} onAction={() => setModal({ type: "addTenant" })} />
-        ) : (
+        ) : view === "card" ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((t) => {
               const unit = data.units.find((u) => u.id === t.unitId);
@@ -766,12 +800,37 @@ export default function UpaUpa() {
               );
             })}
           </div>
+        ) : (
+          <div className="space-y-1">
+            {filtered.map((t) => {
+              const unit = data.units.find((u) => u.id === t.unitId);
+              const building = data.buildings.find((b) => b.id === unit?.buildingId);
+              const payment = monthPayments.find((p) => p.tenantId === t.id);
+              return (
+                <div key={t.id} className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-zinc-200/80 hover:shadow-sm transition-all group">
+                  <div className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-semibold text-zinc-600 shrink-0">{t.firstName[0]}{t.lastName?.[0]}</div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-zinc-900 truncate">{t.firstName} {t.lastName}</p>
+                    <p className="text-xs text-zinc-400 truncate">{building?.name} → {unit?.label || "Unlinked"}</p>
+                  </div>
+                  {t.phone && <p className="text-xs text-zinc-500 hidden sm:block">{t.phone}</p>}
+                  <StatusPill status={t.status} />
+                  {payment && <StatusPill status={payment.status} />}
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button onClick={() => setModal({ type: "editTenant", data: t })} className="p-1.5 hover:bg-zinc-100 rounded-lg"><Edit2 size={14} className="text-zinc-400" /></button>
+                    <button onClick={() => setConfirm({ msg: `Remove ${t.firstName} ${t.lastName}? This also removes their payment history.`, fn: () => deleteTenant(t.id) })} className="p-1.5 hover:bg-red-50 rounded-lg"><Trash2 size={14} className="text-zinc-400 hover:text-red-500" /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     );
   }
 
   function PaymentsPage() {
+    const view = prefs.paymentsView || "card";
     const rows = data.units.filter((u) => u.status === "occupied").map((u) => {
       const building = data.buildings.find((b) => b.id === u.buildingId);
       const tenant = data.tenants.find((t) => t.unitId === u.id && t.status === "active");
@@ -782,6 +841,7 @@ export default function UpaUpa() {
       const q = search.toLowerCase();
       return r.tenant && `${r.tenant.firstName} ${r.tenant.lastName}`.toLowerCase().includes(q) || r.unit.label.toLowerCase().includes(q) || r.building?.name?.toLowerCase().includes(q);
     });
+    const openPayment = (r) => setModal({ type: r.payment ? "editPayment" : "addPayment", data: r.payment || { unitId: r.unit.id, tenantId: r.tenant?.id || "", month: selectedMonth, amountDue: r.unit.monthlyRent, amountPaid: 0, status: "unpaid", method: "gcash", datePaid: "", notes: "" } });
 
     return (
       <div className="space-y-5">
@@ -807,42 +867,139 @@ export default function UpaUpa() {
           <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xs text-red-500">Outstanding</p><p className="text-lg font-semibold text-red-600">{peso(totalDue - totalPaid)}</p></CardContent></Card>
         </div>
 
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search units or tenants..." className="pl-9 rounded-xl" />
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search units or tenants..." className="pl-9 rounded-xl" />
+          </div>
+          <div className="flex gap-1 bg-zinc-100 p-1 rounded-lg shrink-0">
+            <button onClick={() => updatePrefs("paymentsView", "card")} className={`p-1.5 rounded-md transition-colors ${view === "card" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-600"}`}><LayoutGrid size={16} /></button>
+            <button onClick={() => updatePrefs("paymentsView", "table")} className={`p-1.5 rounded-md transition-colors ${view === "table" ? "bg-white shadow-sm text-zinc-900" : "text-zinc-400 hover:text-zinc-600"}`}><Table2 size={16} /></button>
+          </div>
         </div>
 
         {/* Ledger */}
-        <div className="space-y-2">
-          {rows.map((r) => (
-            <Card key={r.unit.id} className="border border-zinc-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => setModal({ type: r.payment ? "editPayment" : "addPayment", data: r.payment || { unitId: r.unit.id, tenantId: r.tenant?.id || "", month: selectedMonth, amountDue: r.unit.monthlyRent, amountPaid: 0, status: "unpaid", method: "gcash", datePaid: "", notes: "" } })}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold ${r.payment?.status === "paid" ? "bg-emerald-100 text-emerald-700" : r.payment?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>
-                      {r.payment?.status === "paid" ? <CheckCircle2 size={18} /> : r.payment?.status === "partial" ? <Clock size={18} /> : <AlertCircle size={18} />}
+        {rows.length === 0 ? (
+          <EmptyState icon={CreditCard} title="No payments to show" sub="Record a payment or check a different month" />
+        ) : view === "card" ? (
+          <div className="space-y-2">
+            {rows.map((r) => (
+              <Card key={r.unit.id} className="border border-zinc-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => openPayment(r)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold ${r.payment?.status === "paid" ? "bg-emerald-100 text-emerald-700" : r.payment?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>
+                        {r.payment?.status === "paid" ? <CheckCircle2 size={18} /> : r.payment?.status === "partial" ? <Clock size={18} /> : <AlertCircle size={18} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-zinc-900">{r.building?.name} → {r.unit.label}</p>
+                        <p className="text-xs text-zinc-500">
+                          {r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "No tenant"}
+                          {r.payment?.method ? ` · ${METHOD_LABELS[r.payment.method]}` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-zinc-900">
-                        {r.building?.name} → {r.unit.label}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        {r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "No tenant"}
-                        {r.payment?.method ? ` · ${METHOD_LABELS[r.payment.method]}` : ""}
-                      </p>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-zinc-900">{peso(r.payment?.amountPaid || 0)} <span className="text-xs font-normal text-zinc-400">/ {peso(r.unit.monthlyRent)}</span></p>
+                      <StatusPill status={r.payment?.status || "unpaid"} />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-zinc-900">{peso(r.payment?.amountPaid || 0)} <span className="text-xs font-normal text-zinc-400">/ {peso(r.unit.monthlyRent)}</span></p>
-                    <StatusPill status={r.payment?.status || "unpaid"} />
-                  </div>
+                  {r.payment?.notes && <p className="text-xs text-zinc-400 mt-2 pl-13 italic">"{r.payment.notes}"</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-zinc-200/80 bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-100 bg-zinc-50/50">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Building / Unit</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Tenant</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Due</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Paid</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Method</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.unit.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 cursor-pointer transition-colors" onClick={() => openPayment(r)}>
+                    <td className="px-4 py-2.5"><StatusPill status={r.payment?.status || "unpaid"} /></td>
+                    <td className="px-4 py-2.5 text-zinc-900 font-medium whitespace-nowrap">{r.building?.name} → {r.unit.label}</td>
+                    <td className="px-4 py-2.5 text-zinc-600 whitespace-nowrap">{r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "—"}</td>
+                    <td className="px-4 py-2.5 text-right text-zinc-900">{peso(r.unit.monthlyRent)}</td>
+                    <td className="px-4 py-2.5 text-right font-medium text-zinc-900">{peso(r.payment?.amountPaid || 0)}</td>
+                    <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.method ? METHOD_LABELS[r.payment.method] : "—"}</td>
+                    <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.datePaid ? fmtDate(r.payment.datePaid) : "—"}</td>
+                    <td className="px-4 py-2.5 text-zinc-400 text-xs italic max-w-32 truncate">{r.payment?.notes || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function SettingsPage() {
+    const dueDayOptions = Array.from({ length: 28 }, (_, i) => i + 1);
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Settings</h1>
+
+        {/* Rent Settings */}
+        <Card className="border border-zinc-200/80 shadow-sm">
+          <CardContent className="p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-zinc-900">Rent Settings</h3>
+            <Field label="Due Day (day of month)">
+              <Select value={String(data.settings.dueDay)} onValueChange={(v) => update((d) => ({ ...d, settings: { ...d.settings, dueDay: Number(v) } }))}>
+                <SelectTrigger className="w-32 rounded-xl"><SelectValue /></SelectTrigger>
+                <SelectContent>{dueDayOptions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}</SelectContent>
+              </Select>
+            </Field>
+          </CardContent>
+        </Card>
+
+        {/* About */}
+        <Card className="border border-zinc-200/80 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-900">About UpaUpa</h3>
+            <p className="text-xs text-zinc-400">Version 1.0 · Phase 1 MVP</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+              {[
+                { label: "Buildings", value: data.buildings.length },
+                { label: "Units", value: data.units.length },
+                { label: "Tenants", value: data.tenants.filter((t) => t.status === "active").length },
+                { label: "Payments", value: data.payments.length },
+              ].map((s) => (
+                <div key={s.label} className="text-center p-3 bg-zinc-50 rounded-xl">
+                  <p className="text-lg font-semibold text-zinc-900">{s.value}</p>
+                  <p className="text-xs text-zinc-400">{s.label}</p>
                 </div>
-                {r.payment?.notes && <p className="text-xs text-zinc-400 mt-2 pl-13 italic">"{r.payment.notes}"</p>}
-              </CardContent>
-            </Card>
-          ))}
-          {rows.length === 0 && <EmptyState icon={CreditCard} title="No payments to show" sub="Record a payment or check a different month" />}
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Management */}
+        <Card className="border border-zinc-200/80 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-900">Data Management</h3>
+            <p className="text-xs text-zinc-400">Reset all data to demo defaults. This cannot be undone.</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirm({ msg: "Reset all data to demo defaults? All your current data will be lost.", fn: () => { const seed = buildSeed(); saveData(seed); setData(seed); } })}
+              className="rounded-full text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600"
+            >
+              <RotateCcw size={14} className="mr-1" /> Reset to Demo Data
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -859,31 +1016,9 @@ export default function UpaUpa() {
       `}</style>
 
       {/* Mobile header */}
-      <div className="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-zinc-200/60 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setMobileNav(!mobileNav)} className="p-2 hover:bg-zinc-100 rounded-xl"><Menu size={20} /></button>
-          <span className="text-lg font-bold tracking-tight">🏠 UpaUpa</span>
-        </div>
+      <div className="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-zinc-200/60 px-4 py-3">
+        <span className="text-lg font-bold tracking-tight">🏠 UpaUpa</span>
       </div>
-
-      {/* Mobile nav overlay */}
-      {mobileNav && (
-        <div className="lg:hidden fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setMobileNav(false)} />
-          <div className="absolute left-0 top-0 bottom-0 w-64 bg-white shadow-xl p-5">
-            <div className="flex items-center gap-2 mb-8">
-              <span className="text-xl font-bold tracking-tight">🏠 UpaUpa</span>
-            </div>
-            <nav className="space-y-1">
-              {nav.map((n) => (
-                <button key={n.id} onClick={() => navigate(n.id)} className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${page === n.id ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"}`}>
-                  <n.icon size={18} />{n.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </div>
-      )}
 
       <div className="flex">
         {/* Desktop sidebar */}
@@ -903,13 +1038,30 @@ export default function UpaUpa() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-h-screen p-4 sm:p-6 lg:p-8 max-w-5xl">
+        <main className="flex-1 min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-5xl">
           {page === "dashboard" && <DashboardPage />}
           {page === "buildings" && <BuildingsPage />}
           {page === "tenants" && <TenantsPage />}
           {page === "payments" && <PaymentsPage />}
+          {page === "settings" && <SettingsPage />}
         </main>
       </div>
+
+      {/* Mobile bottom nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-zinc-200/60" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <div className="flex justify-around items-center h-16 px-2">
+          {nav.map((n) => (
+            <button
+              key={n.id}
+              onClick={() => navigate(n.id)}
+              className={`flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[10px] font-medium transition-colors ${page === n.id ? "text-zinc-900" : "text-zinc-400"}`}
+            >
+              <n.icon size={20} strokeWidth={page === n.id ? 2.5 : 1.5} />
+              <span>{n.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
       {/* Modals */}
       <Modal open={modal?.type === "addBuilding"} onClose={() => setModal(null)} title="Add Building">
