@@ -6,6 +6,7 @@ export const STATUS_COLORS = {
   occupied: "bg-emerald-100 text-emerald-700 border-emerald-200",
   vacant: "bg-zinc-100 text-zinc-500 border-zinc-200",
   active: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  archived: "bg-purple-100 text-purple-700 border-purple-200",
   moved_out: "bg-zinc-100 text-zinc-500 border-zinc-200",
 };
 

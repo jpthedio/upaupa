@@ -1,6 +1,11 @@
 import { Button } from "@/components/ui/button";
 
-export function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
+const VARIANT_STYLES = {
+  destructive: "bg-red-600 hover:bg-red-700 text-white",
+  archive: "bg-purple-600 hover:bg-purple-700 text-white",
+};
+
+export function ConfirmDialog({ open, onClose, onConfirm, title, message, actionLabel = "Delete", variant = "destructive" }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -10,7 +15,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message }) {
         <p className="text-sm text-zinc-500 mb-6">{message}</p>
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={onClose} className="rounded-full">Cancel</Button>
-          <Button onClick={onConfirm} className="rounded-full bg-red-600 hover:bg-red-700 text-white">Delete</Button>
+          <Button onClick={onConfirm} className={`rounded-full ${VARIANT_STYLES[variant] || VARIANT_STYLES.destructive}`}>{actionLabel}</Button>
         </div>
       </div>
     </div>

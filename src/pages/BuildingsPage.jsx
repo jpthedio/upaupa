@@ -56,7 +56,7 @@ export function BuildingsPage() {
                       <p className="text-sm text-zinc-400 mb-3">No tenant</p>
                     )}
                     {payment && <StatusPill status={payment.status} />}
-                    <div className="flex gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 mt-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="sm" onClick={() => setModal({ type: "editUnit", data: u })} className="rounded-full h-8 px-3"><Edit2 size={12} className="mr-1" /> Edit</Button>
                       <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${u.label}? This removes the unit, tenant, and all payments.`, fn: () => deleteUnit(u.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>
                     </div>
@@ -104,7 +104,7 @@ export function BuildingsPage() {
                   <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
                     <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${bDue > 0 ? (bPaid / bDue) * 100 : 0}%` }} />
                   </div>
-                  <div className="flex gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-1 mt-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => setModal({ type: "editBuilding", data: b })} className="rounded-full h-8 px-3"><Edit2 size={12} className="mr-1" /> Edit</Button>
                     <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${b.name}? This removes all units, tenants, and payments in this building.`, fn: () => deleteBuilding(b.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>
                   </div>

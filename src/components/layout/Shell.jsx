@@ -3,6 +3,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/shared/Modal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Toast } from "@/components/shared/Toast";
 import { BuildingForm } from "@/components/forms/BuildingForm";
 import { UnitForm } from "@/components/forms/UnitForm";
 import { TenantForm } from "@/components/forms/TenantForm";
@@ -21,6 +22,7 @@ export function Shell() {
   const {
     loading, data, page, nav, navigate, prefs, user,
     modal, setModal, confirm, setConfirm,
+    toast, dismissToast,
     addBuilding, editBuilding, addUnit, editUnit,
     addTenant, editTenant, upsertPayment,
   } = useApp();
@@ -176,7 +178,11 @@ export function Shell() {
         onConfirm={() => { confirm?.fn(); setConfirm(null); }}
         title="Are you sure?"
         message={confirm?.msg || "This action cannot be undone."}
+        actionLabel={confirm?.actionLabel}
+        variant={confirm?.variant}
       />
+
+      <Toast toast={toast} onDismiss={dismissToast} />
     </div>
   );
 }

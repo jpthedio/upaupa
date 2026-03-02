@@ -17,6 +17,7 @@ export function AppProvider({ children, user }) {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth());
   const [modal, setModal] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [prefs, setPrefs] = useState(() => loadPrefs());
 
@@ -127,23 +128,46 @@ export function AppProvider({ children, user }) {
     update((d) => ({ ...d, tenants: d.tenants.map((x) => (x.id === id ? { ...x, ...t } : x)) }));
     if (user) dbUpdate("tenants", id, t, user.id);
   }
-  function deleteTenant(id) {
+  function archiveTenant(id) {
+    const tenant = data?.tenants.find((t) => t.id === id);
+    const tenantName = tenant ? `${tenant.firstName} ${tenant.lastName}` : "Tenant";
+    let unitId;
+    update((d) => {
+      const t = d.tenants.find((t) => t.id === id);
+      unitId = t?.unitId;
+      return {
+        ...d,
+        tenants: d.tenants.map((t) => (t.id === id ? { ...t, status: "archived" } : t)),
+        units: d.units.map((u) => (u.id === unitId ? { ...u, status: "vacant" } : u)),
+      };
+    });
+    if (user) {
+      dbUpdate("tenants", id, { status: "archived" }, user.id);
+      if (unitId) dbUpdate("units", unitId, { status: "vacant" }, user.id);
+    }
+    showToast(`${tenantName} archived`, () => unarchiveTenant(id));
+  }
+  function unarchiveTenant(id) {
     let unitId;
     update((d) => {
       const tenant = d.tenants.find((t) => t.id === id);
       unitId = tenant?.unitId;
       return {
-        ...d, tenants: d.tenants.filter((t) => t.id !== id),
-        units: d.units.map((u) => (u.id === tenant?.unitId ? { ...u, status: "vacant" } : u)),
-        payments: d.payments.filter((p) => p.tenantId !== id),
+        ...d,
+        tenants: d.tenants.map((t) => (t.id === id ? { ...t, status: "active" } : t)),
+        units: d.units.map((u) => (u.id === unitId ? { ...u, status: "occupied" } : u)),
       };
     });
     if (user) {
-      dbDelete("tenants", id, user.id);
-      if (unitId) dbUpdate("units", unitId, { status: "vacant" }, user.id);
-      // Note: payments with this tenantId are cascade-deleted via tenant deletion
-      // but since payments reference unit_id not tenant_id as FK, we delete explicitly
+      dbUpdate("tenants", id, { status: "active" }, user.id);
+      if (unitId) dbUpdate("units", unitId, { status: "occupied" }, user.id);
     }
+  }
+  function showToast(message, undoFn) {
+    setToast({ message, undoFn, id: Date.now() });
+  }
+  function dismissToast() {
+    setToast(null);
   }
   function upsertPayment(p) {
     let record;
@@ -215,13 +239,14 @@ export function AppProvider({ children, user }) {
     selectedBuilding, setSelectedBuilding,
     selectedMonth, setSelectedMonth, months,
     modal, setModal, confirm, setConfirm,
+    toast, showToast, dismissToast,
     search, setSearch,
     prefs, updatePrefs,
     monthPayments, totalDue, totalPaid, overdueCount, occupiedCount, vacantCount, collectionRate,
     allTimeOutstanding, tenantBalances, tenantPrevBalances,
     addBuilding, editBuilding, deleteBuilding,
     addUnit, editUnit, deleteUnit,
-    addTenant, editTenant, deleteTenant,
+    addTenant, editTenant, archiveTenant, unarchiveTenant,
     upsertPayment, updateSettings,
   };
 
