@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/shared/Modal";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { BuildingForm } from "@/components/forms/BuildingForm";
@@ -12,14 +14,37 @@ import { PaymentsPage } from "@/pages/PaymentsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useApp } from "@/context/AppContext";
+import { hasLocalData, isMigrated, markMigrated, migrateLocalToSupabase } from "@/lib/migrate";
+import { Upload } from "lucide-react";
 
 export function Shell() {
   const {
-    loading, data, page, nav, navigate, prefs,
+    loading, data, page, nav, navigate, prefs, user,
     modal, setModal, confirm, setConfirm,
     addBuilding, editBuilding, addUnit, editUnit,
     addTenant, editTenant, upsertPayment,
   } = useApp();
+
+  const [showMigrate, setShowMigrate] = useState(() => !!user && hasLocalData() && !isMigrated());
+  const [migrating, setMigrating] = useState(false);
+
+  async function handleMigrate() {
+    if (!user) return;
+    setMigrating(true);
+    const result = await migrateLocalToSupabase(user.id);
+    setMigrating(false);
+    if (result.success) {
+      setShowMigrate(false);
+      window.location.reload();
+    } else {
+      alert("Migration failed: " + result.error);
+    }
+  }
+
+  function dismissMigrate() {
+    markMigrated();
+    setShowMigrate(false);
+  }
 
   if (loading || !data) {
     return (
@@ -73,11 +98,28 @@ export function Shell() {
             ))}
           </nav>
           <Separator className="my-4" />
-          <p className="text-[10px] text-zinc-400 text-center">UpaUpa v1.0 · Phase 1 MVP</p>
+          <p className="text-[10px] text-zinc-400 text-center">UpaUpa v1.0</p>
         </aside>
 
         {/* Main content */}
         <main className="flex-1 min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-5xl overflow-x-hidden">
+          {showMigrate && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3 flex-wrap">
+              <Upload size={18} className="text-blue-600 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-blue-900">Upload existing data?</p>
+                <p className="text-xs text-blue-600">We found local data on this device. Upload it to your cloud account?</p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleMigrate} disabled={migrating} className="rounded-full bg-blue-600 hover:bg-blue-700 text-white">
+                  {migrating ? "Uploading..." : "Upload"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={dismissMigrate} className="rounded-full text-blue-600">
+                  Skip
+                </Button>
+              </div>
+            </div>
+          )}
           {page === "dashboard" && <DashboardPage />}
           {page === "buildings" && <BuildingsPage />}
           {page === "tenants" && <TenantsPage />}

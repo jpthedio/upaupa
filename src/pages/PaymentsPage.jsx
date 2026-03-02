@@ -15,6 +15,7 @@ export function PaymentsPage() {
   const {
     data, selectedMonth, setSelectedMonth, months,
     monthPayments, totalDue, totalPaid,
+    allTimeOutstanding, tenantPrevBalances,
     search, setSearch, prefs, updatePrefs, setModal,
   } = useApp();
 
@@ -48,10 +49,11 @@ export function PaymentsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="border border-zinc-200/80 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-zinc-400 flex items-center justify-center gap-1">Expected <InfoTip text="Total rent due from all occupied units." /></span><p className="text-lg font-semibold">{peso(totalDue)}</p></CardContent></Card>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="border border-zinc-200/80 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-zinc-400 flex items-center justify-center gap-1">Expected <InfoTip text="Total rent due from all occupied units this month." /></span><p className="text-lg font-semibold">{peso(totalDue)}</p></CardContent></Card>
         <Card className="border border-emerald-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-emerald-600 flex items-center justify-center gap-1">Collected <InfoTip text="Total rent received this month." /></span><p className="text-lg font-semibold text-emerald-600">{peso(totalPaid)}</p></CardContent></Card>
-        <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-red-500 flex items-center justify-center gap-1">Outstanding <InfoTip text="Remaining unpaid rent this month." /></span><p className="text-lg font-semibold text-red-600">{peso(totalDue - totalPaid)}</p></CardContent></Card>
+        <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-red-500 flex items-center justify-center gap-1">This Month <InfoTip text="Unpaid rent for this month only." /></span><p className="text-lg font-semibold text-red-600">{peso(totalDue - totalPaid)}</p></CardContent></Card>
+        <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-red-500 flex items-center justify-center gap-1">Total Owed <InfoTip text="Total unpaid rent across all months." /></span><p className="text-lg font-semibold text-red-600">{peso(allTimeOutstanding)}</p></CardContent></Card>
       </div>
 
       <div className="flex items-center gap-3">
@@ -69,35 +71,39 @@ export function PaymentsPage() {
         <EmptyState icon={CreditCard} title="No payments to show" sub="Record a payment or check a different month" />
       ) : view === "card" ? (
         <div className="space-y-2">
-          {rows.map((r) => (
-            <Card key={r.unit.id} className="border border-zinc-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => openPayment(r)}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold ${r.payment?.status === "paid" ? "bg-emerald-100 text-emerald-700" : r.payment?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>
-                      {r.payment?.status === "paid" ? <CheckCircle2 size={18} /> : r.payment?.status === "partial" ? <Clock size={18} /> : <AlertCircle size={18} />}
+          {rows.map((r) => {
+            const prevBal = r.tenant ? (tenantPrevBalances.get(r.tenant.id) || 0) : 0;
+            return (
+              <Card key={r.unit.id} className="border border-zinc-200/80 shadow-sm hover:shadow-md transition-all cursor-pointer" onClick={() => openPayment(r)}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold ${r.payment?.status === "paid" ? "bg-emerald-100 text-emerald-700" : r.payment?.status === "partial" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"}`}>
+                        {r.payment?.status === "paid" ? <CheckCircle2 size={18} /> : r.payment?.status === "partial" ? <Clock size={18} /> : <AlertCircle size={18} />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-zinc-900">{r.building?.name} → {r.unit.label}</p>
+                        <p className="text-xs text-zinc-500">
+                          {r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "No tenant"}
+                          {r.payment?.method ? ` · ${METHOD_LABELS[r.payment.method]}` : ""}
+                        </p>
+                        {prevBal > 0 && <p className="text-[10px] text-red-400 mt-0.5">Previous balance: {peso(prevBal)}</p>}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-zinc-900">{r.building?.name} → {r.unit.label}</p>
-                      <p className="text-xs text-zinc-500">
-                        {r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "No tenant"}
-                        {r.payment?.method ? ` · ${METHOD_LABELS[r.payment.method]}` : ""}
-                      </p>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-zinc-900">{peso(r.payment?.amountPaid || 0)} <span className="text-xs font-normal text-zinc-400">/ {peso(r.unit.monthlyRent)}</span></p>
+                      <StatusPill status={r.payment?.status || "unpaid"} />
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-zinc-900">{peso(r.payment?.amountPaid || 0)} <span className="text-xs font-normal text-zinc-400">/ {peso(r.unit.monthlyRent)}</span></p>
-                    <StatusPill status={r.payment?.status || "unpaid"} />
-                  </div>
-                </div>
-                {r.payment?.notes && <p className="text-xs text-zinc-400 mt-2 pl-13 italic">"{r.payment.notes}"</p>}
-              </CardContent>
-            </Card>
-          ))}
+                  {r.payment?.notes && <p className="text-xs text-zinc-400 mt-2 pl-13 italic">"{r.payment.notes}"</p>}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-zinc-200/80 bg-white">
-          <table className="min-w-[700px] w-full text-sm">
+          <table className="min-w-[800px] w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Status</th>
@@ -105,24 +111,29 @@ export function PaymentsPage() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Tenant</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Due</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Paid</th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-zinc-500">Prev. Bal</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Method</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Date</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Notes</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.unit.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 cursor-pointer transition-colors" onClick={() => openPayment(r)}>
-                  <td className="px-4 py-2.5"><StatusPill status={r.payment?.status || "unpaid"} /></td>
-                  <td className="px-4 py-2.5 text-zinc-900 font-medium whitespace-nowrap">{r.building?.name} → {r.unit.label}</td>
-                  <td className="px-4 py-2.5 text-zinc-600 whitespace-nowrap">{r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "—"}</td>
-                  <td className="px-4 py-2.5 text-right text-zinc-900">{peso(r.unit.monthlyRent)}</td>
-                  <td className="px-4 py-2.5 text-right font-medium text-zinc-900">{peso(r.payment?.amountPaid || 0)}</td>
-                  <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.method ? METHOD_LABELS[r.payment.method] : "—"}</td>
-                  <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.datePaid ? fmtDate(r.payment.datePaid) : "—"}</td>
-                  <td className="px-4 py-2.5 text-zinc-400 text-xs italic max-w-32 truncate">{r.payment?.notes || "—"}</td>
-                </tr>
-              ))}
+              {rows.map((r) => {
+                const prevBal = r.tenant ? (tenantPrevBalances.get(r.tenant.id) || 0) : 0;
+                return (
+                  <tr key={r.unit.id} className="border-b border-zinc-50 hover:bg-zinc-50/50 cursor-pointer transition-colors" onClick={() => openPayment(r)}>
+                    <td className="px-4 py-2.5"><StatusPill status={r.payment?.status || "unpaid"} /></td>
+                    <td className="px-4 py-2.5 text-zinc-900 font-medium whitespace-nowrap">{r.building?.name} → {r.unit.label}</td>
+                    <td className="px-4 py-2.5 text-zinc-600 whitespace-nowrap">{r.tenant ? `${r.tenant.firstName} ${r.tenant.lastName}` : "—"}</td>
+                    <td className="px-4 py-2.5 text-right text-zinc-900">{peso(r.unit.monthlyRent)}</td>
+                    <td className="px-4 py-2.5 text-right font-medium text-zinc-900">{peso(r.payment?.amountPaid || 0)}</td>
+                    <td className="px-4 py-2.5 text-right text-red-500">{prevBal > 0 ? peso(prevBal) : "—"}</td>
+                    <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.method ? METHOD_LABELS[r.payment.method] : "—"}</td>
+                    <td className="px-4 py-2.5 text-zinc-500 whitespace-nowrap">{r.payment?.datePaid ? fmtDate(r.payment.datePaid) : "—"}</td>
+                    <td className="px-4 py-2.5 text-zinc-400 text-xs italic max-w-32 truncate">{r.payment?.notes || "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

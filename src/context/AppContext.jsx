@@ -1,12 +1,15 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { LayoutDashboard, Building2, Users, CreditCard, Settings } from "lucide-react";
 import { uid, currentMonth } from "@/lib/helpers";
-import { loadData, saveData, loadPrefs, savePrefs } from "@/lib/storage";
+import {
+  loadData, saveData, loadPrefs, savePrefs,
+  fetchAllData, dbInsert, dbUpdate, dbDelete, dbUpsertPayment, dbUpsertSettings,
+} from "@/lib/storage";
 import { emptyData } from "@/lib/seed";
 
 const AppContext = createContext(null);
 
-export function AppProvider({ children }) {
+export function AppProvider({ children, user }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState("dashboard");
@@ -18,11 +21,29 @@ export function AppProvider({ children }) {
   const [prefs, setPrefs] = useState(() => loadPrefs());
 
   useEffect(() => {
-    let d = loadData();
-    if (!d) { d = emptyData(); saveData(d); }
-    setData(d);
-    setLoading(false);
-  }, []);
+    let cancelled = false;
+    async function load() {
+      // Try Supabase first if authenticated
+      if (user) {
+        const cloud = await fetchAllData(user.id);
+        if (!cancelled && cloud) {
+          setData(cloud);
+          saveData(cloud); // cache locally
+          setLoading(false);
+          return;
+        }
+      }
+      // Fall back to localStorage
+      let d = loadData();
+      if (!d) { d = emptyData(); saveData(d); }
+      if (!cancelled) {
+        setData(d);
+        setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [user]);
 
   const update = useCallback((fn) => {
     setData((prev) => {
@@ -49,12 +70,15 @@ export function AppProvider({ children }) {
     });
   }, []);
 
-  // ─── CRUD ──────────────────────────────────────────────
+  // ─── CRUD (optimistic local + background Supabase sync) ───
   function addBuilding(b) {
-    update((d) => ({ ...d, buildings: [...d.buildings, { ...b, id: uid() }] }));
+    const record = { ...b, id: uid() };
+    update((d) => ({ ...d, buildings: [...d.buildings, record] }));
+    if (user) dbInsert("buildings", record, user.id);
   }
   function editBuilding(id, b) {
     update((d) => ({ ...d, buildings: d.buildings.map((x) => (x.id === id ? { ...x, ...b } : x)) }));
+    if (user) dbUpdate("buildings", id, b, user.id);
   }
   function deleteBuilding(id) {
     update((d) => {
@@ -67,12 +91,17 @@ export function AppProvider({ children }) {
         payments: d.payments.filter((p) => !unitIds.includes(p.unitId)),
       };
     });
+    // DB cascades handle units/tenants/payments via ON DELETE CASCADE
+    if (user) dbDelete("buildings", id, user.id);
   }
   function addUnit(u) {
-    update((d) => ({ ...d, units: [...d.units, { ...u, id: uid() }] }));
+    const record = { ...u, id: uid() };
+    update((d) => ({ ...d, units: [...d.units, record] }));
+    if (user) dbInsert("units", record, user.id);
   }
   function editUnit(id, u) {
     update((d) => ({ ...d, units: d.units.map((x) => (x.id === id ? { ...x, ...u } : x)) }));
+    if (user) dbUpdate("units", id, u, user.id);
   }
   function deleteUnit(id) {
     update((d) => ({
@@ -80,35 +109,58 @@ export function AppProvider({ children }) {
       tenants: d.tenants.filter((t) => t.unitId !== id),
       payments: d.payments.filter((p) => p.unitId !== id),
     }));
+    if (user) dbDelete("units", id, user.id);
   }
   function addTenant(t) {
     const tenantId = uid();
+    const record = { ...t, id: tenantId, status: "active" };
     update((d) => ({
-      ...d, tenants: [...d.tenants, { ...t, id: tenantId, status: "active" }],
+      ...d, tenants: [...d.tenants, record],
       units: d.units.map((u) => (u.id === t.unitId ? { ...u, status: "occupied" } : u)),
     }));
+    if (user) {
+      dbInsert("tenants", record, user.id);
+      dbUpdate("units", t.unitId, { status: "occupied" }, user.id);
+    }
   }
   function editTenant(id, t) {
     update((d) => ({ ...d, tenants: d.tenants.map((x) => (x.id === id ? { ...x, ...t } : x)) }));
+    if (user) dbUpdate("tenants", id, t, user.id);
   }
   function deleteTenant(id) {
+    let unitId;
     update((d) => {
       const tenant = d.tenants.find((t) => t.id === id);
+      unitId = tenant?.unitId;
       return {
         ...d, tenants: d.tenants.filter((t) => t.id !== id),
         units: d.units.map((u) => (u.id === tenant?.unitId ? { ...u, status: "vacant" } : u)),
         payments: d.payments.filter((p) => p.tenantId !== id),
       };
     });
+    if (user) {
+      dbDelete("tenants", id, user.id);
+      if (unitId) dbUpdate("units", unitId, { status: "vacant" }, user.id);
+      // Note: payments with this tenantId are cascade-deleted via tenant deletion
+      // but since payments reference unit_id not tenant_id as FK, we delete explicitly
+    }
   }
   function upsertPayment(p) {
+    let record;
     update((d) => {
       const exists = d.payments.find((x) => x.unitId === p.unitId && x.month === p.month);
       if (exists) {
-        return { ...d, payments: d.payments.map((x) => (x.id === exists.id ? { ...exists, ...p } : x)) };
+        record = { ...exists, ...p };
+        return { ...d, payments: d.payments.map((x) => (x.id === exists.id ? record : x)) };
       }
-      return { ...d, payments: [...d.payments, { ...p, id: uid() }] };
+      record = { ...p, id: uid() };
+      return { ...d, payments: [...d.payments, record] };
     });
+    if (user && record) dbUpsertPayment(record, user.id);
+  }
+  function updateSettings(settings) {
+    update((d) => ({ ...d, settings: { ...d.settings, ...settings } }));
+    if (user) dbUpsertSettings({ ...data?.settings, ...settings }, user.id);
   }
 
   // ─── Nav ───────────────────────────────────────────────
@@ -131,8 +183,34 @@ export function AppProvider({ children }) {
   const vacantCount = data ? data.units.filter((u) => u.status === "vacant").length : 0;
   const collectionRate = totalDue > 0 ? Math.round((totalPaid / totalDue) * 100) : 0;
 
+  // ─── Carry-forward balances ─────────────────────────────
+  const allTimeOutstanding = useMemo(() => {
+    if (!data) return 0;
+    return data.payments.reduce((s, p) => s + (p.amountDue - p.amountPaid), 0);
+  }, [data]);
+
+  const tenantBalances = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map();
+    for (const p of data.payments) {
+      map.set(p.tenantId, (map.get(p.tenantId) || 0) + (p.amountDue - p.amountPaid));
+    }
+    return map;
+  }, [data]);
+
+  const tenantPrevBalances = useMemo(() => {
+    if (!data) return new Map();
+    const map = new Map();
+    for (const p of data.payments) {
+      if (p.month < selectedMonth) {
+        map.set(p.tenantId, (map.get(p.tenantId) || 0) + (p.amountDue - p.amountPaid));
+      }
+    }
+    return map;
+  }, [data, selectedMonth]);
+
   const value = {
-    data, setData, loading, update,
+    data, setData, loading, update, user,
     page, setPage, navigate, nav,
     selectedBuilding, setSelectedBuilding,
     selectedMonth, setSelectedMonth, months,
@@ -140,10 +218,11 @@ export function AppProvider({ children }) {
     search, setSearch,
     prefs, updatePrefs,
     monthPayments, totalDue, totalPaid, overdueCount, occupiedCount, vacantCount, collectionRate,
+    allTimeOutstanding, tenantBalances, tenantPrevBalances,
     addBuilding, editBuilding, deleteBuilding,
     addUnit, editUnit, deleteUnit,
     addTenant, editTenant, deleteTenant,
-    upsertPayment,
+    upsertPayment, updateSettings,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

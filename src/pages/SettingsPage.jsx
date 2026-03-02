@@ -2,16 +2,18 @@ import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { RotateCcw, Upload, CheckCircle2 } from "lucide-react";
+import { RotateCcw, Upload, CheckCircle2, LogOut, Cloud } from "lucide-react";
 import { Field } from "@/components/shared/Field";
 import { InfoTip } from "@/components/shared/InfoTip";
 import { saveData } from "@/lib/storage";
 import { buildSeed } from "@/lib/seed";
 import { parseCSV, importCSV } from "@/lib/csv-import";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 
 export function SettingsPage() {
-  const { data, update, setData, setConfirm, selectedMonth, updatePrefs } = useApp();
+  const { data, update, setData, setConfirm, selectedMonth, updatePrefs, updateSettings } = useApp();
+  const { user, hasSupabase, signOut } = useAuth();
   const dueDayOptions = Array.from({ length: 28 }, (_, i) => i + 1);
   const fileRef = useRef(null);
   const [csvRows, setCsvRows] = useState(null);
@@ -39,6 +41,11 @@ export function SettingsPage() {
     setCsvRows(null);
   }
 
+  function handleDueDayChange(v) {
+    const dueDay = Number(v);
+    updateSettings({ dueDay });
+  }
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">Settings</h1>
@@ -47,7 +54,7 @@ export function SettingsPage() {
         <CardContent className="p-5 space-y-4">
           <h3 className="text-sm font-semibold text-zinc-900">Rent Settings</h3>
           <Field label={<span className="flex items-center gap-1">Due Day (day of month) <InfoTip text="The day of the month when rent is due (e.g., every 5th)." /></span>}>
-            <Select value={String(data.settings.dueDay)} onValueChange={(v) => update((d) => ({ ...d, settings: { ...d.settings, dueDay: Number(v) } }))}>
+            <Select value={String(data.settings.dueDay)} onValueChange={handleDueDayChange}>
               <SelectTrigger className="w-32 rounded-xl"><SelectValue /></SelectTrigger>
               <SelectContent>{dueDayOptions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}</SelectContent>
             </Select>
@@ -58,7 +65,7 @@ export function SettingsPage() {
       <Card className="border border-zinc-200/80 shadow-sm">
         <CardContent className="p-5 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-900">About UpaUpa</h3>
-          <p className="text-xs text-zinc-400">Version 1.0 · Phase 1 MVP</p>
+          <p className="text-xs text-zinc-400">Version 1.0</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
             {[
               { label: "Buildings", value: data.buildings.length },
@@ -133,6 +140,33 @@ export function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
+
+      {hasSupabase && user && (
+        <Card className="border border-zinc-200/80 shadow-sm">
+          <CardContent className="p-5 space-y-3">
+            <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-1">
+              <Cloud size={16} className="text-emerald-500" /> Account
+            </h3>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-xs font-semibold text-emerald-700">
+                {user.email?.[0]?.toUpperCase() || "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-zinc-900 truncate">{user.email}</p>
+                <p className="text-xs text-emerald-600">Synced to cloud</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirm({ msg: "Sign out? Your data is safely stored in the cloud.", fn: signOut })}
+              className="rounded-full"
+            >
+              <LogOut size={14} className="mr-1" /> Sign Out
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -25,6 +25,8 @@ export function buildSeed() {
     emergencyContact: "", status: "active",
   }));
   const cm = currentMonth();
+  const prevDate = new Date(); prevDate.setMonth(prevDate.getMonth() - 1);
+  const prevMonth = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}-01`;
   const statuses = ["paid", "paid", "partial", "late", "paid", "unpaid", "paid", "paid"];
   const methods = ["gcash", "bank_transfer", "cash", "gcash", "gcash", "", "bank_transfer", "cash"];
   const payments = occupiedUnits.map((u, i) => {
@@ -38,6 +40,17 @@ export function buildSeed() {
       receiptUrl: "", notes: s === "late" ? "Promised to pay by 15th" : "",
     };
   });
+  // Prior-month unpaid payments for Pedro (Unit 4) and Carlo (Room A) so carry-forward is visible
+  const pedro = tenants.find((t) => t.firstName === "Pedro");
+  const pedroUnit = occupiedUnits.find((u) => u.id === pedro?.unitId);
+  const carlo = tenants.find((t) => t.firstName === "Carlo");
+  const carloUnit = occupiedUnits.find((u) => u.id === carlo?.unitId);
+  if (pedro && pedroUnit) {
+    payments.push({ id: uid(), unitId: pedroUnit.id, tenantId: pedro.id, month: prevMonth, amountDue: pedroUnit.monthlyRent, amountPaid: 0, status: "unpaid", method: "cash", datePaid: "", receiptUrl: "", notes: "Did not pay last month" });
+  }
+  if (carlo && carloUnit) {
+    payments.push({ id: uid(), unitId: carloUnit.id, tenantId: carlo.id, month: prevMonth, amountDue: carloUnit.monthlyRent, amountPaid: 2000, status: "partial", method: "gcash", datePaid: `2026-02-10`, receiptUrl: "", notes: "" });
+  }
   return {
     buildings: [
       { id: b1, name: "Building A", address: "123 Main St, Las Piñas", totalUnits: 6 },

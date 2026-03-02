@@ -11,6 +11,7 @@ export function DashboardPage() {
   const {
     data, monthPayments, totalDue, totalPaid, collectionRate,
     overdueCount, occupiedCount, vacantCount,
+    allTimeOutstanding, tenantPrevBalances,
     selectedMonth, setSelectedMonth, months, setModal,
   } = useApp();
 
@@ -36,7 +37,7 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={TrendingUp} label="Collected" value={peso(totalPaid)} sub={`${collectionRate}% of ${peso(totalDue)}`} tip="Total rent collected this month from all tenants." />
-        <StatCard icon={AlertCircle} label="Overdue" value={overdueCount} sub={overdueCount > 0 ? `${peso(totalDue - totalPaid)} outstanding` : "All good!"} accent={overdueCount > 0 ? "text-red-600" : undefined} tip="Units with unpaid or late rent this month." />
+        <StatCard icon={AlertCircle} label="Outstanding" value={peso(allTimeOutstanding)} sub={allTimeOutstanding !== (totalDue - totalPaid) ? `${peso(totalDue - totalPaid)} this month` : overdueCount > 0 ? `${overdueCount} overdue this month` : "All good!"} accent={allTimeOutstanding > 0 ? "text-red-600" : undefined} tip="Total unpaid rent across all months, including previous balances." />
         <StatCard icon={Home} label="Occupied" value={`${occupiedCount}/${data.units.length}`} sub={`${vacantCount} vacant`} tip="How many of your units currently have tenants." />
         <StatCard icon={Users} label="Tenants" value={data.tenants.filter((t) => t.status === "active").length} />
       </div>
@@ -61,25 +62,29 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-5 pb-5 space-y-2">
-            {overdue.map((p) => (
-              <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-red-50/50 hover:bg-red-50 transition-colors cursor-pointer" onClick={() => { setModal({ type: "editPayment", data: p }); }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-white border border-red-200 flex items-center justify-center text-sm font-medium text-red-600">
-                    {p.tenant?.firstName?.[0] || "?"}
+            {overdue.map((p) => {
+              const prevBal = tenantPrevBalances.get(p.tenantId) || 0;
+              return (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-red-50/50 hover:bg-red-50 transition-colors cursor-pointer" onClick={() => { setModal({ type: "editPayment", data: p }); }}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-white border border-red-200 flex items-center justify-center text-sm font-medium text-red-600">
+                      {p.tenant?.firstName?.[0] || "?"}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-zinc-800">
+                        {p.tenant ? `${p.tenant.firstName} ${p.tenant.lastName}` : "Unknown"}
+                      </p>
+                      <p className="text-xs text-zinc-500">{p.building?.name} → {p.unit?.label}</p>
+                      {prevBal > 0 && <p className="text-[10px] text-red-400 mt-0.5">+ {peso(prevBal)} previous balance</p>}
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-zinc-800">
-                      {p.tenant ? `${p.tenant.firstName} ${p.tenant.lastName}` : "Unknown"}
-                    </p>
-                    <p className="text-xs text-zinc-500">{p.building?.name} → {p.unit?.label}</p>
+                  <div className="text-right">
+                    <StatusPill status={p.status} />
+                    <p className="text-xs text-zinc-500 mt-1">{peso(p.amountDue - p.amountPaid)} due</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <StatusPill status={p.status} />
-                  <p className="text-xs text-zinc-500 mt-1">{peso(p.amountDue - p.amountPaid)} due</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       )}
