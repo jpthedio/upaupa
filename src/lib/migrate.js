@@ -23,7 +23,7 @@ export function markMigrated() {
   localStorage.setItem(MIGRATED_KEY, "true");
 }
 
-export async function migrateLocalToSupabase(userId) {
+export async function migrateLocalToSupabase(userId, teamId) {
   if (!supabase) return { error: "Supabase not configured" };
 
   try {
@@ -33,28 +33,28 @@ export async function migrateLocalToSupabase(userId) {
 
     // Insert buildings
     if (data.buildings?.length) {
-      const rows = data.buildings.map((b) => ({ ...toSnake(b), user_id: userId }));
+      const rows = data.buildings.map((b) => ({ ...toSnake(b), user_id: userId, team_id: teamId }));
       const { error } = await supabase.from("buildings").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
 
     // Insert units
     if (data.units?.length) {
-      const rows = data.units.map((u) => ({ ...toSnake(u), user_id: userId }));
+      const rows = data.units.map((u) => ({ ...toSnake(u), user_id: userId, team_id: teamId }));
       const { error } = await supabase.from("units").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
 
     // Insert tenants
     if (data.tenants?.length) {
-      const rows = data.tenants.map((t) => ({ ...toSnake(t), user_id: userId }));
+      const rows = data.tenants.map((t) => ({ ...toSnake(t), user_id: userId, team_id: teamId }));
       const { error } = await supabase.from("tenants").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
 
     // Insert payments
     if (data.payments?.length) {
-      const rows = data.payments.map((p) => ({ ...toSnake(p), user_id: userId }));
+      const rows = data.payments.map((p) => ({ ...toSnake(p), user_id: userId, team_id: teamId }));
       const { error } = await supabase.from("payments").upsert(rows, { onConflict: "id" });
       if (error) throw error;
     }
@@ -63,6 +63,7 @@ export async function migrateLocalToSupabase(userId) {
     if (data.settings) {
       const { error } = await supabase.from("user_settings").upsert({
         user_id: userId,
+        team_id: teamId,
         due_day: data.settings.dueDay || 5,
       }, { onConflict: "user_id" });
       if (error) throw error;

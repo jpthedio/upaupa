@@ -4,9 +4,9 @@ import { Shell } from "@/components/layout/Shell";
 import { LoginPage } from "@/pages/LoginPage";
 
 function AuthGate() {
-  const { user, authLoading, hasSupabase } = useAuth();
+  const { user, team, authLoading, hasSupabase } = useAuth();
 
-  if (authLoading) {
+  if (authLoading || (hasSupabase && user && !team)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f8f7f4]">
         <div className="flex flex-col items-center gap-3">
@@ -22,7 +22,7 @@ function AuthGate() {
   }
 
   return (
-    <AppProvider user={user}>
+    <AppProvider user={user} team={team}>
       <Shell />
     </AppProvider>
   );

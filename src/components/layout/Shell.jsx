@@ -13,27 +13,31 @@ import { BuildingsPage } from "@/pages/BuildingsPage";
 import { TenantsPage } from "@/pages/TenantsPage";
 import { PaymentsPage } from "@/pages/PaymentsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { AnalyticsPage } from "@/pages/AnalyticsPage";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useApp } from "@/context/AppContext";
 import { hasLocalData, isMigrated, markMigrated, migrateLocalToSupabase } from "@/lib/migrate";
+import { usePageTracker } from "@/lib/analytics";
 import { Upload } from "lucide-react";
 
 export function Shell() {
   const {
-    loading, data, page, nav, navigate, prefs, user,
+    loading, data, page, nav, navigate, prefs, user, team,
     modal, setModal, confirm, setConfirm,
     toast, dismissToast,
     addBuilding, editBuilding, addUnit, editUnit,
     addTenant, editTenant, upsertPayment,
   } = useApp();
 
+  usePageTracker(page, user?.id, team?.teamId);
+
   const [showMigrate, setShowMigrate] = useState(() => !!user && hasLocalData() && !isMigrated());
   const [migrating, setMigrating] = useState(false);
 
   async function handleMigrate() {
-    if (!user) return;
+    if (!user || !team?.teamId) return;
     setMigrating(true);
-    const result = await migrateLocalToSupabase(user.id);
+    const result = await migrateLocalToSupabase(user.id, team.teamId);
     setMigrating(false);
     if (result.success) {
       setShowMigrate(false);
@@ -126,6 +130,7 @@ export function Shell() {
           {page === "buildings" && <BuildingsPage />}
           {page === "tenants" && <TenantsPage />}
           {page === "payments" && <PaymentsPage />}
+          {page === "analytics" && <AnalyticsPage />}
           {page === "settings" && <SettingsPage />}
         </main>
       </div>

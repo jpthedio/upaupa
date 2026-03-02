@@ -9,7 +9,7 @@ import { useApp } from "@/context/AppContext";
 export function BuildingsPage() {
   const {
     data, monthPayments, selectedBuilding, setSelectedBuilding,
-    setModal, setConfirm, deleteBuilding, deleteUnit,
+    setModal, setConfirm, deleteBuilding, deleteUnit, role,
   } = useApp();
 
   if (selectedBuilding) {
@@ -58,7 +58,7 @@ export function BuildingsPage() {
                     {payment && <StatusPill status={payment.status} />}
                     <div className="flex gap-1 mt-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="sm" onClick={() => setModal({ type: "editUnit", data: u })} className="rounded-full h-8 px-3"><Edit2 size={12} className="mr-1" /> Edit</Button>
-                      <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${u.label}? This removes the unit, tenant, and all payments.`, fn: () => deleteUnit(u.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>
+                      {role === "owner" && <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${u.label}? This removes the unit, tenant, and all payments.`, fn: () => deleteUnit(u.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>}
                     </div>
                   </CardContent>
                 </Card>
@@ -106,7 +106,7 @@ export function BuildingsPage() {
                   </div>
                   <div className="flex gap-1 mt-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => setModal({ type: "editBuilding", data: b })} className="rounded-full h-8 px-3"><Edit2 size={12} className="mr-1" /> Edit</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${b.name}? This removes all units, tenants, and payments in this building.`, fn: () => deleteBuilding(b.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>
+                    {role === "owner" && <Button variant="ghost" size="sm" onClick={() => setConfirm({ msg: `Delete ${b.name}? This removes all units, tenants, and payments in this building.`, fn: () => deleteBuilding(b.id) })} className="rounded-full h-8 px-3 text-red-500 hover:text-red-600 hover:bg-red-50"><Trash2 size={12} /></Button>}
                   </div>
                 </CardContent>
               </Card>

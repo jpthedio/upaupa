@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, AlertCircle, Home, Users, CheckCircle2 } from "lucide-react";
+import { TrendingUp, AlertCircle, Home, Users, CheckCircle2, Calendar } from "lucide-react";
 import { peso, monthLabel } from "@/lib/helpers";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusPill } from "@/components/shared/StatusPill";
@@ -11,7 +11,7 @@ export function DashboardPage() {
   const {
     data, monthPayments, totalDue, totalPaid, collectionRate,
     overdueCount, occupiedCount, vacantCount,
-    allTimeOutstanding, tenantPrevBalances,
+    allTimeOutstanding, tenantPrevBalances, yearStats,
     selectedMonth, setSelectedMonth, months, setModal,
   } = useApp();
 
@@ -96,6 +96,64 @@ export function DashboardPage() {
             <div>
               <p className="font-medium text-emerald-700">All caught up!</p>
               <p className="text-sm text-emerald-600/70">No overdue payments this month.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Year Overview (trailing 12 months) */}
+      {yearStats.months.some((m) => m.due > 0) && (
+        <Card className="border border-zinc-200/80 shadow-sm">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-1.5">
+                <Calendar size={15} className="text-zinc-400" /> Year Overview
+                <InfoTip text="Trailing 12 months of rent collection." />
+              </h3>
+              <div className="text-right">
+                <p className="text-lg font-semibold text-zinc-900">{peso(yearStats.totalPaid)} <span className="text-xs font-normal text-zinc-400">/ {peso(yearStats.totalDue)}</span></p>
+                <p className="text-xs text-zinc-500">{yearStats.rate}% collected</p>
+              </div>
+            </div>
+
+            {/* Bar chart */}
+            <div className="flex items-end gap-1 h-28 mb-2">
+              {yearStats.months.map((m) => {
+                const maxDue = Math.max(...yearStats.months.map((x) => x.due), 1);
+                const barH = m.due > 0 ? Math.max((m.due / maxDue) * 100, 4) : 0;
+                const paidH = m.due > 0 ? (m.paid / m.due) * barH : 0;
+                const shortMonth = new Date(m.month.slice(0, 7) + "-15").toLocaleDateString("en-PH", { month: "short" });
+                return (
+                  <div key={m.month} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div className="w-full relative rounded-t" style={{ height: `${barH}%`, minHeight: barH > 0 ? 4 : 0 }}>
+                      <div className="absolute inset-0 bg-zinc-100 rounded-t" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-emerald-400 rounded-t transition-all" style={{ height: `${m.due > 0 ? (m.paid / m.due) * 100 : 0}%` }} />
+                    </div>
+                    <span className="text-[9px] text-zinc-400 leading-none">{shortMonth}</span>
+                    {/* Tooltip */}
+                    <div className="absolute -top-14 left-1/2 -translate-x-1/2 bg-zinc-800 text-white text-[10px] rounded-lg px-2 py-1.5 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+                      <p className="font-medium">{new Date(m.month.slice(0, 7) + "-15").toLocaleDateString("en-PH", { month: "long", year: "numeric" })}</p>
+                      <p>Due: {peso(m.due)} | Paid: {peso(m.paid)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Year totals row */}
+            <div className="grid grid-cols-3 gap-3 pt-3 border-t border-zinc-100">
+              <div className="text-center">
+                <p className="text-xs text-zinc-400">Total Due</p>
+                <p className="text-sm font-semibold text-zinc-900">{peso(yearStats.totalDue)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-zinc-400">Total Collected</p>
+                <p className="text-sm font-semibold text-emerald-600">{peso(yearStats.totalPaid)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-zinc-400">Outstanding</p>
+                <p className="text-sm font-semibold text-red-600">{peso(yearStats.totalDue - yearStats.totalPaid)}</p>
+              </div>
             </div>
           </CardContent>
         </Card>

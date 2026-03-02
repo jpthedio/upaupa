@@ -88,7 +88,7 @@ function TenantCard({ t, unit, building, payment, balance, selectMode, isSelecte
         {!selectMode && (
           <div className="flex gap-1 mt-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="sm" onClick={() => onEdit(t)} className="rounded-full h-8 px-3"><Edit2 size={12} className="mr-1" /> Edit</Button>
-            {!isArchived && (
+            {!isArchived && onArchive && (
               <Button variant="ghost" size="sm" onClick={() => onArchive(t)} className="rounded-full h-8 px-3 text-purple-500 hover:text-purple-600 hover:bg-purple-50"><Archive size={12} /></Button>
             )}
           </div>
@@ -156,7 +156,7 @@ function TenantRow({ t, unit, building, payment, balance, selectMode, isSelected
           {!selectMode && (
             <div className="flex gap-1 opacity-0 lg:group-hover:opacity-100 transition-opacity shrink-0">
               <button onClick={(e) => { e.stopPropagation(); onEdit(t); }} className="p-1.5 hover:bg-zinc-100 rounded-lg"><Edit2 size={14} className="text-zinc-400" /></button>
-              {!isArchived && (
+              {!isArchived && onArchive && (
                 <button onClick={(e) => { e.stopPropagation(); onArchive(t); }} className="p-1.5 hover:bg-purple-50 rounded-lg"><Archive size={14} className="text-zinc-400 hover:text-purple-500" /></button>
               )}
             </div>
@@ -182,7 +182,7 @@ function TenantRow({ t, unit, building, payment, balance, selectMode, isSelected
                 </button>
               )}
               <button onClick={(e) => { e.stopPropagation(); onEdit(t); }} className="p-1.5 hover:bg-zinc-100 rounded-lg"><Edit2 size={14} className="text-zinc-400" /></button>
-              <button onClick={(e) => { e.stopPropagation(); onArchive(t); }} className="p-1.5 hover:bg-purple-50 rounded-lg"><Archive size={14} className="text-zinc-400" /></button>
+              {onArchive && <button onClick={(e) => { e.stopPropagation(); onArchive(t); }} className="p-1.5 hover:bg-purple-50 rounded-lg"><Archive size={14} className="text-zinc-400" /></button>}
             </>
           )}
         </div>
@@ -195,7 +195,7 @@ function TenantRow({ t, unit, building, payment, balance, selectMode, isSelected
 export function TenantsPage() {
   const {
     data, monthPayments, selectedMonth, tenantBalances, search, setSearch,
-    prefs, updatePrefs, setModal, setConfirm, archiveTenant, upsertPayment, dismissToast,
+    prefs, updatePrefs, setModal, setConfirm, archiveTenant, upsertPayment, dismissToast, role,
   } = useApp();
 
   const view = prefs.tenantsView || "card";
@@ -325,7 +325,7 @@ export function TenantsPage() {
       t, unit, building, payment, balance,
       selectMode, isSelected: selected.has(t.id), canSelect,
       onToggle: toggleSelect, onLongPress: enterSelectMode,
-      onQuickPay: openQuickPay, onEdit: handleEdit, onArchive: handleArchive,
+      onQuickPay: openQuickPay, onEdit: handleEdit, onArchive: role === "owner" ? handleArchive : null,
     };
   }
 
