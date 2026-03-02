@@ -32,12 +32,17 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!user) { setTeam(null); return; }
     let cancelled = false;
-    ensureTeam(user.id).then((t) => {
-      if (!cancelled) {
-        setTeam(t);
-        setAuthLoading(false);
-      }
-    });
+    ensureTeam(user.id)
+      .then((t) => {
+        if (!cancelled) {
+          setTeam(t);
+          setAuthLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("ensureTeam failed:", err);
+        if (!cancelled) setAuthLoading(false);
+      });
     return () => { cancelled = true; };
   }, [user]);
 
