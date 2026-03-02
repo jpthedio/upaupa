@@ -99,6 +99,17 @@ export function SettingsPage() {
               <SelectContent>{dueDayOptions.map((d) => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
+          {role === "owner" && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!data.settings.perEntityDueDay}
+                onChange={(e) => updateSettings({ perEntityDueDay: e.target.checked })}
+                className="w-4 h-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500"
+              />
+              <span className="text-sm text-zinc-600">Allow per-building and per-tenant due day overrides</span>
+            </label>
+          )}
           {role !== "owner" && <p className="text-xs text-zinc-400">Only the owner can change this.</p>}
         </CardContent>
       </Card>

@@ -32,7 +32,7 @@ export function Shell() {
 
   const { signOut } = useAuth();
 
-  usePageTracker(page, user?.id, team?.teamId);
+  usePageTracker(page, user?.id, team?.teamId, user?.email);
 
   const [showMigrate, setShowMigrate] = useState(() => !!user && hasLocalData() && !isMigrated());
   const [migrating, setMigrating] = useState(false);

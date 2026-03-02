@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BarChart3, Eye, Clock, Users, Activity } from "lucide-react";
+import { BarChart3, Eye, Clock, Users, Activity, User } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { fetchAnalytics } from "@/lib/analytics";
 
@@ -29,18 +29,31 @@ export function AnalyticsPage() {
     const userSet = new Set();
     const dailyViews = {};
 
+    // Per-user stats
+    const userStats = {};
+
     for (const e of events) {
       userSet.add(e.user_id);
+      const uid = e.user_id;
+      const email = e.user_email || uid.slice(0, 8) + "...";
+
+      if (!userStats[uid]) {
+        userStats[uid] = { email, views: 0, totalSeconds: 0, leaveCount: 0, pages: new Set(), lastSeen: e.created_at };
+      }
 
       if (e.event === "page_view") {
         pageViews[e.page] = (pageViews[e.page] || 0) + 1;
         const day = e.created_at.slice(0, 10);
         dailyViews[day] = (dailyViews[day] || 0) + 1;
+        userStats[uid].views++;
+        userStats[uid].pages.add(e.page);
       }
 
       if (e.event === "page_leave" && e.meta?.duration_seconds) {
         if (!pageDurations[e.page]) pageDurations[e.page] = [];
         pageDurations[e.page].push(e.meta.duration_seconds);
+        userStats[uid].totalSeconds += e.meta.duration_seconds;
+        userStats[uid].leaveCount++;
       }
     }
 
@@ -74,11 +87,25 @@ export function AnalyticsPage() {
       event: e.event,
       page: e.page,
       userId: e.user_id,
+      email: e.user_email || e.user_id.slice(0, 8) + "...",
       time: e.created_at,
       meta: e.meta,
     }));
 
-    return { totalViews, uniqueUsers: userSet.size, topPages, days, recent };
+    // Per-user list sorted by views
+    const userList = Object.entries(userStats)
+      .map(([uid, s]) => ({
+        uid,
+        email: s.email,
+        views: s.views,
+        avgSeconds: s.leaveCount > 0 ? Math.round(s.totalSeconds / s.leaveCount) : 0,
+        totalMinutes: Math.round(s.totalSeconds / 60),
+        pages: s.pages.size,
+        lastSeen: s.lastSeen,
+      }))
+      .sort((a, b) => b.views - a.views);
+
+    return { totalViews, uniqueUsers: userSet.size, topPages, days, recent, userList };
   }, [events]);
 
   if (!isAdmin) {
@@ -172,6 +199,50 @@ export function AnalyticsPage() {
             </CardContent>
           </Card>
 
+          {/* Per-user breakdown */}
+          <Card className="border border-zinc-200/80 shadow-sm">
+            <CardContent className="p-5">
+              <h3 className="text-sm font-semibold text-zinc-900 mb-3 flex items-center gap-1">
+                <User size={14} className="text-violet-500" /> Users
+              </h3>
+              <div className="space-y-2">
+                {stats.userList.map((u) => (
+                  <div key={u.uid} className="flex items-center gap-3 py-2 px-3 bg-zinc-50 rounded-xl">
+                    <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-xs font-semibold text-violet-700 shrink-0">
+                      {u.email[0]?.toUpperCase() || "?"}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-zinc-800 truncate">{u.email}</p>
+                      <p className="text-xs text-zinc-400">
+                        Last seen {new Date(u.lastSeen).toLocaleDateString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4 text-right shrink-0">
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-800">{u.views}</p>
+                        <p className="text-[10px] text-zinc-400">views</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-800">{u.pages}</p>
+                        <p className="text-[10px] text-zinc-400">pages</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-800">
+                          {u.avgSeconds > 60 ? `${Math.round(u.avgSeconds / 60)}m` : `${u.avgSeconds}s`}
+                        </p>
+                        <p className="text-[10px] text-zinc-400">avg</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-800">{u.totalMinutes}m</p>
+                        <p className="text-[10px] text-zinc-400">total</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Top pages */}
           <Card className="border border-zinc-200/80 shadow-sm">
             <CardContent className="p-5">
@@ -208,6 +279,7 @@ export function AnalyticsPage() {
                   <div key={e.id} className="flex items-center justify-between py-1.5 px-2 rounded-lg hover:bg-zinc-50 text-sm">
                     <div className="flex items-center gap-2">
                       <div className={`w-1.5 h-1.5 rounded-full ${e.event === "page_view" ? "bg-blue-400" : "bg-zinc-300"}`} />
+                      <span className="text-zinc-500 text-xs truncate max-w-[100px]">{e.email}</span>
                       <span className="text-zinc-700 capitalize">{e.page}</span>
                       <span className="text-xs text-zinc-400">
                         {e.event === "page_leave" && e.meta?.duration_seconds

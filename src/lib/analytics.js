@@ -5,11 +5,11 @@ import { supabase } from "./supabase";
  * Fire-and-forget event logger.
  * Silently fails — analytics should never break the app.
  */
-export function trackEvent(userId, teamId, event, page, meta) {
+export function trackEvent(userId, teamId, event, page, meta, userEmail) {
   if (!supabase || !userId || !teamId) return;
   supabase
     .from("analytics_events")
-    .insert({ user_id: userId, team_id: teamId, event, page, meta: meta || {} })
+    .insert({ user_id: userId, team_id: teamId, event, page, meta: meta || {}, user_email: userEmail || null })
     .then(() => {});
 }
 
@@ -17,7 +17,7 @@ export function trackEvent(userId, teamId, event, page, meta) {
  * Tracks page views + time-on-page.
  * Call once in Shell — it watches `page` changes automatically.
  */
-export function usePageTracker(page, userId, teamId) {
+export function usePageTracker(page, userId, teamId, userEmail) {
   const startRef = useRef(Date.now());
   const prevPageRef = useRef(page);
 
@@ -28,15 +28,15 @@ export function usePageTracker(page, userId, teamId) {
     if (prevPageRef.current && prevPageRef.current !== page) {
       const seconds = Math.round((Date.now() - startRef.current) / 1000);
       if (seconds > 0) {
-        trackEvent(userId, teamId, "page_leave", prevPageRef.current, { duration_seconds: seconds });
+        trackEvent(userId, teamId, "page_leave", prevPageRef.current, { duration_seconds: seconds }, userEmail);
       }
     }
 
     // Log new page view
-    trackEvent(userId, teamId, "page_view", page);
+    trackEvent(userId, teamId, "page_view", page, null, userEmail);
     startRef.current = Date.now();
     prevPageRef.current = page;
-  }, [page, userId, teamId]);
+  }, [page, userId, teamId, userEmail]);
 
   // Log duration on unmount (tab close / navigate away)
   useEffect(() => {
@@ -50,6 +50,7 @@ export function usePageTracker(page, userId, teamId) {
           event: "page_leave",
           page: prevPageRef.current,
           meta: { duration_seconds: seconds },
+          user_email: userEmail || null,
         });
         navigator.sendBeacon(
           `${supabase.supabaseUrl}/rest/v1/analytics_events`,
@@ -59,7 +60,7 @@ export function usePageTracker(page, userId, teamId) {
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [userId, teamId]);
+  }, [userId, teamId, userEmail]);
 }
 
 // ─── Query functions (for analytics dashboard) ──────────────

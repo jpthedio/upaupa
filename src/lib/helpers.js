@@ -13,3 +13,7 @@ export const currentMonth = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
+
+/** Resolve effective due day: tenant → building → global */
+export const getEffectiveDueDay = (tenant, building, globalDueDay = 5) =>
+  tenant?.dueDay ?? building?.dueDay ?? globalDueDay;
