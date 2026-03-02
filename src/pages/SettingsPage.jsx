@@ -11,6 +11,7 @@ import { parseCSV, importCSV } from "@/lib/csv-import";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { inviteMember, listTeamMembers, listInvites, revokeInvite, removeMember } from "@/lib/team";
+import { APP_VERSION } from "@/App";
 
 export function SettingsPage() {
   const { data, update, setData, setConfirm, selectedMonth, updatePrefs, updateSettings, team, role } = useApp();
@@ -105,7 +106,7 @@ export function SettingsPage() {
       <Card className="border border-zinc-200/80 shadow-sm">
         <CardContent className="p-5 space-y-3">
           <h3 className="text-sm font-semibold text-zinc-900">About UpaUpa</h3>
-          <p className="text-xs text-zinc-400">Version 1.0</p>
+          <p className="text-xs text-zinc-400">Version {APP_VERSION}</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
             {[
               { label: "Buildings", value: data.buildings.length },

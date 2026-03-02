@@ -1,10 +1,26 @@
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { Shell } from "@/components/layout/Shell";
 import { LoginPage } from "@/pages/LoginPage";
 
+export const APP_VERSION = "1.1.0";
+
 function AuthGate() {
-  const { user, team, authLoading, hasSupabase } = useAuth();
+  const { user, team, authLoading, hasSupabase, signOut } = useAuth();
+
+  // Force logout via #logout hash
+  useEffect(() => {
+    function handleHash() {
+      if (window.location.hash === "#logout") {
+        window.location.hash = "";
+        signOut();
+      }
+    }
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, [signOut]);
 
   if (authLoading || (hasSupabase && user && !team)) {
     return (
@@ -29,6 +45,10 @@ function AuthGate() {
 }
 
 export default function UpaUpa() {
+  useEffect(() => {
+    console.log(`%c🏠 UpaUpa v${APP_VERSION}`, "font-size:14px;font-weight:bold;color:#18181b");
+  }, []);
+
   return (
     <AuthProvider>
       <AuthGate />
