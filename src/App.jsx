@@ -9,18 +9,18 @@ export const APP_VERSION = "1.1.0";
 function AuthGate() {
   const { user, team, authLoading, hasSupabase, signOut } = useAuth();
 
-  // Force logout via #logout hash
+  // Force logout via #logout hash — nukes session directly
   useEffect(() => {
     function handleHash() {
       if (window.location.hash === "#logout") {
-        window.location.hash = "";
-        signOut();
+        localStorage.removeItem("upaupa-auth");
+        window.location.href = window.location.pathname;
       }
     }
     handleHash();
     window.addEventListener("hashchange", handleHash);
     return () => window.removeEventListener("hashchange", handleHash);
-  }, [signOut]);
+  }, []);
 
   if (authLoading || (hasSupabase && user && !team)) {
     return (
