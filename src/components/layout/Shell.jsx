@@ -10,11 +10,12 @@ import { BuildingsPage } from "@/pages/BuildingsPage";
 import { TenantsPage } from "@/pages/TenantsPage";
 import { PaymentsPage } from "@/pages/PaymentsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useApp } from "@/context/AppContext";
 
 export function Shell() {
   const {
-    loading, data, page, nav, navigate,
+    loading, data, page, nav, navigate, prefs,
     modal, setModal, confirm, setConfirm,
     addBuilding, editBuilding, addUnit, editUnit,
     addTenant, editTenant, upsertPayment,
@@ -27,6 +28,18 @@ export function Shell() {
           <div className="w-10 h-10 border-3 border-zinc-300 border-t-zinc-800 rounded-full animate-spin" />
           <p className="text-sm text-zinc-500">Loading UpaUpa...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!prefs.onboarded) {
+    return (
+      <div className="min-h-screen bg-[#f8f7f4] font-sans">
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
+          * { font-family: 'DM Sans', sans-serif; }
+        `}</style>
+        <OnboardingWizard />
       </div>
     );
   }
@@ -64,7 +77,7 @@ export function Shell() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-5xl">
+        <main className="flex-1 min-h-screen p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 max-w-5xl overflow-x-hidden">
           {page === "dashboard" && <DashboardPage />}
           {page === "buildings" && <BuildingsPage />}
           {page === "tenants" && <TenantsPage />}

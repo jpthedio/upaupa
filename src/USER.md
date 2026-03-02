@@ -1,7 +1,7 @@
-# Primary User Persona: Tita Leny
+# Primary User Persona: Tita Cecille
 
 ## Profile
-- **Name:** Tita Leny (short for Erlinda)
+- **Name:** Tita Cecille
 - **Age:** ~60 years old
 - **Gender:** Female
 - **Location:** Metro Manila, Philippines (Las Pinas area)

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import { LayoutDashboard, Building2, Users, CreditCard, Settings } from "lucide-react";
 import { uid, currentMonth } from "@/lib/helpers";
 import { loadData, saveData, loadPrefs, savePrefs } from "@/lib/storage";
-import { buildSeed } from "@/lib/seed";
+import { emptyData } from "@/lib/seed";
 
 const AppContext = createContext(null);
 
@@ -19,7 +19,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     let d = loadData();
-    if (!d) { d = buildSeed(); saveData(d); }
+    if (!d) { d = emptyData(); saveData(d); }
     setData(d);
     setLoading(false);
   }, []);

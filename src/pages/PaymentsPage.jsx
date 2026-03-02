@@ -8,6 +8,7 @@ import { METHOD_LABELS } from "@/lib/constants";
 import { exportCSV } from "@/lib/csv";
 import { StatusPill } from "@/components/shared/StatusPill";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { InfoTip } from "@/components/shared/InfoTip";
 import { useApp } from "@/context/AppContext";
 
 export function PaymentsPage() {
@@ -48,9 +49,9 @@ export function PaymentsPage() {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border border-zinc-200/80 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xs text-zinc-400">Expected</p><p className="text-lg font-semibold">{peso(totalDue)}</p></CardContent></Card>
-        <Card className="border border-emerald-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xs text-emerald-600">Collected</p><p className="text-lg font-semibold text-emerald-600">{peso(totalPaid)}</p></CardContent></Card>
-        <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><p className="text-xs text-red-500">Outstanding</p><p className="text-lg font-semibold text-red-600">{peso(totalDue - totalPaid)}</p></CardContent></Card>
+        <Card className="border border-zinc-200/80 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-zinc-400 flex items-center justify-center gap-1">Expected <InfoTip text="Total rent due from all occupied units." /></span><p className="text-lg font-semibold">{peso(totalDue)}</p></CardContent></Card>
+        <Card className="border border-emerald-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-emerald-600 flex items-center justify-center gap-1">Collected <InfoTip text="Total rent received this month." /></span><p className="text-lg font-semibold text-emerald-600">{peso(totalPaid)}</p></CardContent></Card>
+        <Card className="border border-red-100 shadow-sm"><CardContent className="p-4 text-center"><span className="text-xs text-red-500 flex items-center justify-center gap-1">Outstanding <InfoTip text="Remaining unpaid rent this month." /></span><p className="text-lg font-semibold text-red-600">{peso(totalDue - totalPaid)}</p></CardContent></Card>
       </div>
 
       <div className="flex items-center gap-3">
@@ -96,7 +97,7 @@ export function PaymentsPage() {
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-zinc-200/80 bg-white">
-          <table className="w-full text-sm">
+          <table className="min-w-[700px] w-full text-sm">
             <thead>
               <tr className="border-b border-zinc-100 bg-zinc-50/50">
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Status</th>

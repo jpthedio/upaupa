@@ -4,6 +4,7 @@ import { TrendingUp, AlertCircle, Home, Users, CheckCircle2 } from "lucide-react
 import { peso, monthLabel } from "@/lib/helpers";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusPill } from "@/components/shared/StatusPill";
+import { InfoTip } from "@/components/shared/InfoTip";
 import { useApp } from "@/context/AppContext";
 
 export function DashboardPage() {
@@ -34,16 +35,16 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={TrendingUp} label="Collected" value={peso(totalPaid)} sub={`${collectionRate}% of ${peso(totalDue)}`} />
-        <StatCard icon={AlertCircle} label="Overdue" value={overdueCount} sub={overdueCount > 0 ? `${peso(totalDue - totalPaid)} outstanding` : "All good!"} accent={overdueCount > 0 ? "text-red-600" : undefined} />
-        <StatCard icon={Home} label="Occupied" value={`${occupiedCount}/${data.units.length}`} sub={`${vacantCount} vacant`} />
+        <StatCard icon={TrendingUp} label="Collected" value={peso(totalPaid)} sub={`${collectionRate}% of ${peso(totalDue)}`} tip="Total rent collected this month from all tenants." />
+        <StatCard icon={AlertCircle} label="Overdue" value={overdueCount} sub={overdueCount > 0 ? `${peso(totalDue - totalPaid)} outstanding` : "All good!"} accent={overdueCount > 0 ? "text-red-600" : undefined} tip="Units with unpaid or late rent this month." />
+        <StatCard icon={Home} label="Occupied" value={`${occupiedCount}/${data.units.length}`} sub={`${vacantCount} vacant`} tip="How many of your units currently have tenants." />
         <StatCard icon={Users} label="Tenants" value={data.tenants.filter((t) => t.status === "active").length} />
       </div>
 
       <Card className="border border-zinc-200/80 shadow-sm">
         <CardContent className="p-5">
           <div className="flex justify-between items-center mb-3">
-            <span className="text-sm font-medium text-zinc-700">Collection Progress</span>
+            <span className="text-sm font-medium text-zinc-700 flex items-center gap-1">Collection Progress <InfoTip text="Percentage of expected rent that's been collected." /></span>
             <span className="text-sm text-zinc-500">{peso(totalPaid)} / {peso(totalDue)}</span>
           </div>
           <div className="h-3 bg-zinc-100 rounded-full overflow-hidden">

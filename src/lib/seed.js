@@ -1,5 +1,9 @@
 import { uid, currentMonth } from "./helpers";
 
+export function emptyData() {
+  return { buildings: [], units: [], tenants: [], payments: [], settings: { dueDay: 5 } };
+}
+
 export function buildSeed() {
   const b1 = uid(), b2 = uid();
   const units1 = Array.from({ length: 6 }, (_, i) => ({
