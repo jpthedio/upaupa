@@ -18,7 +18,8 @@ import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { useApp } from "@/context/AppContext";
 import { hasLocalData, isMigrated, markMigrated, migrateLocalToSupabase } from "@/lib/migrate";
 import { usePageTracker } from "@/lib/analytics";
-import { Upload } from "lucide-react";
+import { Upload, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 export function Shell() {
   const {
@@ -28,6 +29,8 @@ export function Shell() {
     addBuilding, editBuilding, addUnit, editUnit,
     addTenant, editTenant, upsertPayment,
   } = useApp();
+
+  const { signOut } = useAuth();
 
   usePageTracker(page, user?.id, team?.teamId);
 
@@ -86,8 +89,17 @@ export function Shell() {
       `}</style>
 
       {/* Mobile header */}
-      <div className="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-zinc-200/60 px-4 py-3">
+      <div className="lg:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-zinc-200/60 px-4 py-3 flex items-center justify-between">
         <span className="text-lg font-bold tracking-tight">🏠 UpaUpa</span>
+        {user && (
+          <button
+            onClick={() => setConfirm({ msg: "Sign out? Your data is safely stored in the cloud.", fn: signOut })}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700 transition-colors"
+          >
+            <span className="truncate max-w-[120px]">{user.email}</span>
+            <LogOut size={14} />
+          </button>
+        )}
       </div>
 
       <div className="flex">
@@ -103,8 +115,25 @@ export function Shell() {
               </button>
             ))}
           </nav>
-          <Separator className="my-4" />
-          <p className="text-[10px] text-zinc-400 text-center">UpaUpa v1.0</p>
+          {user && (
+            <>
+              <Separator className="my-4" />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-semibold text-zinc-600 shrink-0">
+                    {user.email?.[0]?.toUpperCase() || "?"}
+                  </div>
+                  <p className="text-xs text-zinc-500 truncate">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => setConfirm({ msg: "Sign out? Your data is safely stored in the cloud.", fn: signOut })}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-zinc-500 hover:bg-zinc-100 transition-colors"
+                >
+                  <LogOut size={15} /> Sign Out
+                </button>
+              </div>
+            </>
+          )}
         </aside>
 
         {/* Main content */}
