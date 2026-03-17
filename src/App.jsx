@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { Shell } from "@/components/layout/Shell";
 import { LoginPage } from "@/pages/LoginPage";
+import { Analytics } from "@vercel/analytics/react";
 
 export const APP_VERSION = "1.1.0";
 
@@ -52,6 +53,7 @@ export default function UpaUpa() {
   return (
     <AuthProvider>
       <AuthGate />
+      <Analytics />
     </AuthProvider>
   );
 }
