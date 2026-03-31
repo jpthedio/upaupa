@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { supabase, hasSupabase } from "@/lib/supabase";
-import { ensureTeam } from "@/lib/team";
+import { ensureTeam, createTeamForOwner } from "@/lib/team";
 
 const AuthContext = createContext(null);
 
@@ -8,6 +8,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [team, setTeam] = useState(null);
   const [tenantAccess, setTenantAccess] = useState(null);
+  const [needsRole, setNeedsRole] = useState(false);
   const [authLoading, setAuthLoading] = useState(hasSupabase);
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function AuthProvider({ children }) {
 
   // Resolve team (or tenant portal) after user is set
   useEffect(() => {
-    if (!user) { setTeam(null); setTenantAccess(null); return; }
+    if (!user) { setTeam(null); setTenantAccess(null); setNeedsRole(false); return; }
     let cancelled = false;
     ensureTeam(user.id)
       .then((result) => {
@@ -40,6 +41,8 @@ export function AuthProvider({ children }) {
         if (result?.isTenantPortal) {
           setTenantAccess(result.tenantAccess);
           setTeam(null);
+        } else if (result?.needsRole) {
+          setNeedsRole(true);
         } else {
           setTeam(result);
           setTenantAccess(null);
@@ -62,16 +65,26 @@ export function AuthProvider({ children }) {
     return { error };
   }
 
+  async function chooseOwner() {
+    if (!user) return;
+    setAuthLoading(true);
+    const result = await createTeamForOwner(user.id);
+    setTeam(result);
+    setNeedsRole(false);
+    setAuthLoading(false);
+  }
+
   async function signOut() {
     if (!supabase) return;
     await supabase.auth.signOut();
     setUser(null);
     setTeam(null);
     setTenantAccess(null);
+    setNeedsRole(false);
   }
 
   return (
-    <AuthContext.Provider value={{ user, team, tenantAccess, authLoading, hasSupabase, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, team, tenantAccess, needsRole, authLoading, hasSupabase, signInWithEmail, signOut, chooseOwner }}>
       {children}
     </AuthContext.Provider>
   );

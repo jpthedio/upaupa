@@ -64,12 +64,30 @@ export async function ensureTeam(userId) {
     return { isTenantPortal: true, tenantAccess: tenantPortal };
   }
 
-  // 3. No membership, no invite → create a new team
+  // 3. No membership, no invite, no tenant portal → ask user what they are
+  return { needsRole: true, isAdmin };
+}
+
+/**
+ * Create a new team for a user who chose "I'm a building owner".
+ */
+export async function createTeamForOwner(userId) {
+  if (!supabase) return null;
+
+  const adminPromise = supabase
+    .from("app_admins")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   const { data: newTeam } = await supabase
     .from("teams")
     .insert({ owner_id: userId, name: "My Team" })
     .select()
     .single();
+
+  const { data: adminRow } = await adminPromise;
+  const isAdmin = !!adminRow;
 
   if (newTeam) {
     await supabase.from("team_members").insert({
