@@ -12,7 +12,7 @@ import { useLongPress } from "@/hooks/useLongPress";
 import { useApp } from "@/context/AppContext";
 
 // ─── Card sub-component (allows useLongPress per item) ──────────
-function TenantCard({ t, unit, building, payment, balance, selectMode, isSelected, canSelect, onToggle, onLongPress, onQuickPay, onEdit, onArchive }) {
+function TenantCard({ t, unit, building, payment, balance, portalStatus, selectMode, isSelected, canSelect, onToggle, onLongPress, onQuickPay, onEdit, onArchive }) {
   const isPaid = payment?.status === "paid";
   const isPartial = payment?.status === "partial";
   const remaining = (unit?.monthlyRent || 0) - (payment?.amountPaid || 0);
@@ -49,6 +49,12 @@ function TenantCard({ t, unit, building, payment, balance, selectMode, isSelecte
           </div>
           <StatusPill status={t.status} />
         </div>
+        {portalStatus && (portalStatus === "active" || portalStatus === "invited") && (
+          <div className="flex items-center gap-1 mb-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${portalStatus === "active" ? "bg-blue-500" : "bg-blue-300"}`} />
+            <span className="text-[10px] text-blue-500 font-medium">Portal {portalStatus}</span>
+          </div>
+        )}
         {t.phone && <p className="text-sm text-zinc-500 flex items-center gap-1.5 mb-1"><Phone size={12} />{t.phone}</p>}
         {t.leaseEndDate && <p className="text-sm text-zinc-500 flex items-center gap-1.5 mb-2"><Calendar size={12} />Lease ends {fmtDate(t.leaseEndDate)}</p>}
         {(payment || balance > 0) && (
@@ -99,7 +105,7 @@ function TenantCard({ t, unit, building, payment, balance, selectMode, isSelecte
 }
 
 // ─── Row sub-component (allows useLongPress per item) ────────────
-function TenantRow({ t, unit, building, payment, balance, selectMode, isSelected, canSelect, onToggle, onLongPress, onQuickPay, onEdit, onArchive }) {
+function TenantRow({ t, unit, building, payment, balance, portalStatus, selectMode, isSelected, canSelect, onToggle, onLongPress, onQuickPay, onEdit, onArchive }) {
   const isPaid = payment?.status === "paid";
   const isPartial = payment?.status === "partial";
   const remaining = (unit?.monthlyRent || 0) - (payment?.amountPaid || 0);
@@ -132,6 +138,9 @@ function TenantRow({ t, unit, building, payment, balance, selectMode, isSelected
           <p className="text-sm font-medium text-zinc-900 truncate">{t.firstName} {t.lastName}</p>
           <p className="text-xs text-zinc-400 truncate">{building?.name} → {unit?.label || "Unlinked"}</p>
         </div>
+        {portalStatus && (portalStatus === "active" || portalStatus === "invited") && (
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${portalStatus === "active" ? "bg-blue-500" : "bg-blue-300"}`} title={`Portal ${portalStatus}`} />
+        )}
         {t.phone && <p className="text-xs text-zinc-500 hidden sm:block">{t.phone}</p>}
         <StatusPill status={t.status} />
         {/* Desktop-only: payment info + actions inline */}
@@ -196,6 +205,7 @@ export function TenantsPage() {
   const {
     data, monthPayments, selectedMonth, tenantBalances, search, setSearch,
     prefs, updatePrefs, setModal, setConfirm, archiveTenant, upsertPayment, dismissToast, role,
+    portalAccess,
   } = useApp();
 
   const view = prefs.tenantsView || "card";
@@ -321,8 +331,10 @@ export function TenantsPage() {
     const payment = monthPayments.find((p) => p.tenantId === t.id);
     const balance = tenantBalances.get(t.id) || 0;
     const canSelect = selectMode && t.status !== "archived";
+    const pa = portalAccess?.find((p) => p.tenant_id === t.id);
     return {
       t, unit, building, payment, balance,
+      portalStatus: pa?.status || null,
       selectMode, isSelected: selected.has(t.id), canSelect,
       onToggle: toggleSelect, onLongPress: enterSelectMode,
       onQuickPay: openQuickPay, onEdit: handleEdit, onArchive: role === "owner" ? handleArchive : null,

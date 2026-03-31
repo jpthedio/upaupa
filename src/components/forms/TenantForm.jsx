@@ -4,10 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field } from "@/components/shared/Field";
 import { InfoTip } from "@/components/shared/InfoTip";
+import { StatusPill } from "@/components/shared/StatusPill";
 import { useApp } from "@/context/AppContext";
+import { Mail, Send, ShieldOff } from "lucide-react";
 
 export function TenantForm({ initial, onSave }) {
-  const { data, setModal } = useApp();
+  const { data, setModal, portalAccess, inviteToPortal, revokePortalAccess, role, setConfirm } = useApp();
   const vacantUnits = data.units.filter((u) => u.status === "vacant" || u.id === initial?.unitId);
   const globalDueDay = data.settings.dueDay || 5;
 
@@ -46,6 +48,7 @@ export function TenantForm({ initial, onSave }) {
           </SelectContent>
         </Select>
       </Field>
+      <Field label="Email"><Input type="email" value={f.email || ""} onChange={(e) => setF({ ...f, email: e.target.value })} placeholder="tenant@email.com" /></Field>
       <Field label="Phone"><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="09XX XXX XXXX" /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Move-in Date"><Input type="date" value={f.moveInDate} onChange={(e) => setF({ ...f, moveInDate: e.target.value })} /></Field>
@@ -69,6 +72,55 @@ export function TenantForm({ initial, onSave }) {
           </Select>
         </Field>
       )}
+      {/* Portal Access — only shown when editing an existing tenant */}
+      {initial && role === "owner" && (() => {
+        const pa = portalAccess?.find((p) => p.tenant_id === initial.id);
+        const portalStatus = pa?.status || null;
+        const hasEmail = !!f.email?.trim();
+
+        return (
+          <div className="pt-3 mt-1 border-t border-zinc-100">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Mail size={14} className="text-zinc-400" />
+                <span className="text-xs font-medium text-zinc-600">Tenant Portal</span>
+              </div>
+              {portalStatus && <StatusPill status={portalStatus} />}
+            </div>
+            <div className="mt-2">
+              {!hasEmail ? (
+                <p className="text-xs text-zinc-400">Add an email address to enable portal invite</p>
+              ) : portalStatus === "active" ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                  onClick={() => setConfirm({
+                    msg: `Revoke portal access for ${initial.firstName}? They won't be able to view their payment history.`,
+                    actionLabel: "Revoke",
+                    variant: "danger",
+                    fn: () => revokePortalAccess(initial.id),
+                  })}
+                >
+                  <ShieldOff size={12} className="mr-1" /> Revoke Access
+                </Button>
+              ) : portalStatus === "invited" ? (
+                <p className="text-xs text-zinc-500">Invite pending — tenant needs to sign in at the app with <span className="font-medium">{f.email}</span></p>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                  onClick={() => inviteToPortal(initial.id)}
+                >
+                  <Send size={12} className="mr-1" /> Invite to Portal
+                </Button>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
       <Button onClick={handleSave} className="w-full rounded-full bg-zinc-900 hover:bg-zinc-800" disabled={!f.firstName || !f.unitId}>
         {initial ? "Save Changes" : "Add Tenant"}
       </Button>

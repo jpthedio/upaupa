@@ -58,6 +58,12 @@ export async function ensureTeam(userId) {
     }
   }
 
+  // 2.5. Tenant portal access? (don't create a team for pure tenants)
+  const tenantPortal = await checkTenantPortalAccess(userId, user?.email);
+  if (tenantPortal?.length > 0) {
+    return { isTenantPortal: true, tenantAccess: tenantPortal };
+  }
+
   // 3. No membership, no invite → create a new team
   const { data: newTeam } = await supabase
     .from("teams")
@@ -76,6 +82,77 @@ export async function ensureTeam(userId) {
   }
 
   return null;
+}
+
+/**
+ * Check if this user has tenant portal access via their email.
+ * Returns array of portal access records (with joined tenant data), or null.
+ */
+export async function checkTenantPortalAccess(userId, email) {
+  if (!supabase || !email) return null;
+
+  const { data: records } = await supabase
+    .from("tenant_portal_access")
+    .select("*")
+    .eq("email", email.toLowerCase())
+    .in("status", ["invited", "active"]);
+
+  if (!records?.length) return null;
+
+  // Activate any "invited" records on first sign-in
+  for (const rec of records) {
+    if (rec.status === "invited") {
+      await supabase.from("tenant_portal_access")
+        .update({
+          status: "active",
+          auth_user_id: userId,
+          activated_at: new Date().toISOString(),
+        })
+        .eq("id", rec.id);
+      rec.status = "active";
+      rec.auth_user_id = userId;
+    }
+  }
+
+  return records;
+}
+
+/**
+ * Invite a tenant to the portal. Creates/upserts a portal access record.
+ */
+export async function inviteTenantToPortal(tenantId, tenantEmail, teamId) {
+  if (!supabase) return { error: "No Supabase" };
+  const { error } = await supabase.from("tenant_portal_access").upsert({
+    tenant_id: tenantId,
+    team_id: teamId,
+    email: tenantEmail.toLowerCase().trim(),
+    status: "invited",
+    invited_at: new Date().toISOString(),
+  }, { onConflict: "tenant_id" });
+  return { error: error?.message || null };
+}
+
+/**
+ * Revoke a tenant's portal access.
+ */
+export async function revokeTenantPortalAccess(tenantId) {
+  if (!supabase) return { error: "No Supabase" };
+  const { error } = await supabase.from("tenant_portal_access")
+    .update({ status: "revoked", revoked_at: new Date().toISOString() })
+    .eq("tenant_id", tenantId);
+  return { error: error?.message || null };
+}
+
+/**
+ * Fetch all portal access records for a team.
+ */
+export async function fetchPortalAccess(teamId) {
+  if (!supabase) return [];
+  const { data } = await supabase
+    .from("tenant_portal_access")
+    .select("*")
+    .eq("team_id", teamId);
+  return data || [];
 }
 
 export async function inviteMember(teamId, email, invitedBy) {

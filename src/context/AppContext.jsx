@@ -5,6 +5,7 @@ import {
   loadData, saveData, loadPrefs, savePrefs,
   fetchAllData, dbInsert, dbUpdate, dbDelete, dbUpsertPayment, dbUpsertSettings,
 } from "@/lib/storage";
+import { fetchPortalAccess, inviteTenantToPortal, revokeTenantPortalAccess } from "@/lib/team";
 import { emptyData } from "@/lib/seed";
 
 const AppContext = createContext(null);
@@ -20,6 +21,7 @@ export function AppProvider({ children, user, team }) {
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState("");
   const [prefs, setPrefs] = useState(() => loadPrefs());
+  const [portalAccess, setPortalAccess] = useState([]);
 
   const teamId = team?.teamId;
   const role = team?.role || "owner";
@@ -30,9 +32,13 @@ export function AppProvider({ children, user, team }) {
     async function load() {
       // Try Supabase first if authenticated with a team
       if (user && teamId) {
-        const cloud = await fetchAllData(teamId);
+        const [cloud, pa] = await Promise.all([
+          fetchAllData(teamId),
+          fetchPortalAccess(teamId),
+        ]);
         if (!cancelled && cloud) {
           setData(cloud);
+          setPortalAccess(pa);
           saveData(cloud); // cache locally
           setLoading(false);
           return;
@@ -150,6 +156,10 @@ export function AppProvider({ children, user, team }) {
     if (user && teamId) {
       dbUpdate("tenants", id, { status: "archived" }, teamId);
       if (unitId) dbUpdate("units", unitId, { status: "vacant" }, teamId);
+      // Auto-revoke portal access on archive
+      revokeTenantPortalAccess(id).then(() => {
+        setPortalAccess((prev) => prev.map((pa) => pa.tenant_id === id ? { ...pa, status: "revoked" } : pa));
+      });
     }
     showToast(`${tenantName} archived`, () => unarchiveTenant(id));
   }
@@ -192,6 +202,34 @@ export function AppProvider({ children, user, team }) {
     if (role !== "owner") return;
     update((d) => ({ ...d, settings: { ...d.settings, ...settings } }));
     if (user && teamId) dbUpsertSettings({ ...data?.settings, ...settings }, teamId);
+  }
+
+  async function inviteToPortal(tenantId) {
+    if (role !== "owner") return;
+    const tenant = data?.tenants.find((t) => t.id === tenantId);
+    if (!tenant?.email) return { error: "Tenant has no email address" };
+    const result = await inviteTenantToPortal(tenantId, tenant.email, teamId);
+    if (!result.error) {
+      setPortalAccess((prev) => {
+        const existing = prev.find((pa) => pa.tenant_id === tenantId);
+        if (existing) {
+          return prev.map((pa) => pa.tenant_id === tenantId ? { ...pa, status: "invited", invited_at: new Date().toISOString() } : pa);
+        }
+        return [...prev, { tenant_id: tenantId, team_id: teamId, email: tenant.email, status: "invited", invited_at: new Date().toISOString() }];
+      });
+      showToast(`Portal invite sent to ${tenant.firstName}`);
+    }
+    return result;
+  }
+
+  async function revokePortalAccess(tenantId) {
+    if (role !== "owner") return;
+    const result = await revokeTenantPortalAccess(tenantId);
+    if (!result.error) {
+      setPortalAccess((prev) => prev.map((pa) => pa.tenant_id === tenantId ? { ...pa, status: "revoked" } : pa));
+      showToast("Portal access revoked");
+    }
+    return result;
   }
 
   // ─── Nav ───────────────────────────────────────────────
@@ -275,10 +313,12 @@ export function AppProvider({ children, user, team }) {
     prefs, updatePrefs,
     monthPayments, totalDue, totalPaid, overdueCount, occupiedCount, vacantCount, collectionRate,
     allTimeOutstanding, tenantBalances, tenantPrevBalances, yearStats,
+    portalAccess,
     addBuilding, editBuilding, deleteBuilding,
     addUnit, editUnit, deleteUnit,
     addTenant, editTenant, archiveTenant, unarchiveTenant,
     upsertPayment, updateSettings,
+    inviteToPortal, revokePortalAccess,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

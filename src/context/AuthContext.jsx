@@ -7,6 +7,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [team, setTeam] = useState(null);
+  const [tenantAccess, setTenantAccess] = useState(null);
   const [authLoading, setAuthLoading] = useState(hasSupabase);
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
       setUser(session?.user ?? null);
       if (!session?.user) {
         setTeam(null);
+        setTenantAccess(null);
         setAuthLoading(false);
       }
     });
@@ -28,16 +30,21 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Resolve team after user is set
+  // Resolve team (or tenant portal) after user is set
   useEffect(() => {
-    if (!user) { setTeam(null); return; }
+    if (!user) { setTeam(null); setTenantAccess(null); return; }
     let cancelled = false;
     ensureTeam(user.id)
-      .then((t) => {
-        if (!cancelled) {
-          setTeam(t);
-          setAuthLoading(false);
+      .then((result) => {
+        if (cancelled) return;
+        if (result?.isTenantPortal) {
+          setTenantAccess(result.tenantAccess);
+          setTeam(null);
+        } else {
+          setTeam(result);
+          setTenantAccess(null);
         }
+        setAuthLoading(false);
       })
       .catch((err) => {
         console.error("ensureTeam failed:", err);
@@ -60,10 +67,11 @@ export function AuthProvider({ children }) {
     await supabase.auth.signOut();
     setUser(null);
     setTeam(null);
+    setTenantAccess(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, team, authLoading, hasSupabase, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, team, tenantAccess, authLoading, hasSupabase, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );
