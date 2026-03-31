@@ -4,7 +4,7 @@
 
 create table tenant_portal_access (
   id uuid primary key default gen_random_uuid(),
-  tenant_id uuid not null references tenants(id) on delete cascade,
+  tenant_id text not null references tenants(id) on delete cascade,
   team_id uuid not null references teams(id) on delete cascade,
   auth_user_id uuid references auth.users(id) on delete set null,
   email text not null,
@@ -16,6 +16,15 @@ create table tenant_portal_access (
   updated_at timestamptz not null default now(),
   unique(tenant_id)
 );
+
+-- Create the trigger function if it doesn't exist
+create or replace function update_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
 
 create trigger tenant_portal_access_updated_at before update on tenant_portal_access
   for each row execute function update_updated_at();
